@@ -1,0 +1,8 @@
+IMG=t.img
+BIN=${1%%asm}bin
+fasm $1 -s $1.fas || exit
+fasm-listing $1.fas ${1%%asm}lst
+dd if=/dev/zero of=$IMG count=2880
+dd if=$BIN of=$IMG bs=1 conv=notrunc
+rm $BIN $1.fas
+dd if=pic.cga4 of=$IMG seek=1 conv=notrunc

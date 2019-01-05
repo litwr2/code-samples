@@ -1,0 +1,18 @@
+/ack {
+   2 index 0 eq {
+      1 add exch pop exch pop
+   } {
+      dup 0 eq {
+         pop exch dup 1 eq {
+            pop
+         } {
+              2 eq {0} {1} ifelse exch pop
+           } ifelse
+      } {
+           1 sub 2 index exch 2 index exch ack 3 2 roll 1 sub 3 1 roll ack
+        } ifelse
+     } ifelse
+} def
+
+1 1 5000 ack = quit
+

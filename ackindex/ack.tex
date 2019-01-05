@@ -1,0 +1,16 @@
+\def\ack#1#2#3{%n,x,y
+\ifcase#1\count0=#3\advance\count0by1%
+\else\ifcase#3\ifcase#1
+\or\count0=#2%
+\or\count0=0%
+\else\count0=1\fi
+\else\count1=#3\advance\count1by-1%
+\edef\p{{#1}{#2}{\the\count1}}%
+\expandafter\ack\p
+\count1=#1\advance\count1by-1%
+\edef\p{{\the\count1}{#2}{\the\count0}}%
+\expandafter\ack\p
+\fi\fi}
+
+\ack{1}{1}{3400}\message{\the\count0}
+\bye

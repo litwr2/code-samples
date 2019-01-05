@@ -1,0 +1,17 @@
+%RUN IT BY
+%   time tex fib.tex
+
+\def\fib#1{%
+\ifnum#1<3\global\count0=1%
+\else%
+\count1=#1\advance\count1by-1%
+\edef\z{{\the\count1}}%
+\expandafter\fib\z%
+\count1=#1\advance\count1by-2%
+\edef\z{{\the\count1}}%
+{\count2=\count0%
+\expandafter\fib\z%
+\global\advance\count0by\count2}\fi}
+
+\fib{27}\message{\the\count0}
+\bye

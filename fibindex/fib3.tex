@@ -1,0 +1,18 @@
+%RUN IT BY
+%   time tex fib.tex
+%it is about 20% faster than fib.tex but it is not strictly the same algorithm.
+%the algorithm is the same as in fib3.c
+
+\def\fib#1{%
+{\count0=0%
+\def\fib##1{\ifnum##1<3\advance\count0by1%
+\else%
+\count1=##1\advance\count1by-1%
+\edef\z{{\the\count1}}\expandafter\fib\z%
+\count1=##1\advance\count1by-2%
+\edef\z{{\the\count1}}\expandafter\fib\z%
+\fi}%
+\fib{#1}\message{\the\count0}}}
+
+\fib{27}
+\bye

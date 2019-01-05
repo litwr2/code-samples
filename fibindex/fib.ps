@@ -1,0 +1,11 @@
+%RUN IT BY
+%   time gs fib.ps
+
+/fib {
+  dup 3 lt
+    {pop 1}
+    {1 sub dup 1 sub fib exch fib add} ifelse
+} def
+
+32 fib =
+quit

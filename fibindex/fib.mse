@@ -1,0 +1,27 @@
+c RUN IT BY
+c     time mse -t fib.mse /dev/null
+c this script is almost functional equivalent to fib3.c
+
+define(fib) > '!' sub(3) '1' out(3)
+
+begin > '*!'
+   '28'                 c an argument
+   store(0) '0' endstore
+   store(d) '0123456789' endstore
+
+	group(1)
+'' > back(1)
+'!' > store(3) use(2)
+'*' > out(0) nl
+
+	group(2)
+any(d) fol(d) > dup
+any(d) > dup endstore
+   ifgt(3) '2'
+       do(fib) do(fib)
+   else
+      add(0) '1'
+   endif
+   back(1)
+   use(1)
+

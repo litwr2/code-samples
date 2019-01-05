@@ -1,0 +1,186 @@
+#!/usr/bin/wish
+# Simple Graphics Server,
+# written by Lidovski V., XI-2001, IV-2014, version 1.15
+# Released under the GNU GPL
+# commands:
+#    area <hsize> <vsize> <color>
+#    setAxes <dx> <xstart> <xend> <dy> <ystart> <yend> <color>
+#    showFunc <xstart> <xend> <function> <legend> <color>
+#    showAxes
+#    point <name> <x> <y> <color>
+#    line <name> <x1> <y1> <x2> <y2> <color>
+#    circle <name> <x> <y> <radius> <color>
+#    circumference <name> <x> <y> <radius> <color>
+#    rectrangle <name> <x-top> <y-top> <x-bottom> <y-bottom> <color>
+#    text <name> <x> <y> <color> <text>
+#    move <name> <dx> <dy>
+#    delete <name>
+#    pause
+#    <empty line>
+
+set rfont "-*-courier-*-r-*-*-14-*-*-*-*-*-*-*"
+set width 0
+set height 0
+
+proc setAxesVars {dx1 xstart1 xend1 dy1 ystart1 yend1 color1} {
+  global width height dwh w h nx ny x y dx xstart xend dy ystart yend color
+  global errf rfont ts
+  set errf 0
+  if {$xstart1 > 0 || $ystart1 > 0 || $xend1 < 0 || $yend1 < 0} {set errf 1}
+  set dx $dx1
+  set xstart $xstart1
+  set xend $xend1
+  set dy $dy1
+  set ystart $ystart1
+  set yend $yend1
+  set color $color1
+  set dwh [expr ($height + $width)/2]
+  set ts [expr int(sqrt($dwh*5/13) + .5)]
+  set rfont "-*-courier-*-r-*-*-$ts-*-*-*-*-*-*-*"
+  set dwh [expr $dwh/20]
+  set w [expr $width - 2*$dwh]
+  set h [expr $height - 2*$dwh]
+  set nx [expr $xend - $xstart]
+  set ny [expr $yend - $ystart]
+  set y [expr $yend*$h/$ny + $dwh]
+  set x [expr -$xstart*$w/$nx + $dwh]
+}
+
+set axes axes
+proc showAxes {} {
+  global width height dwh w h nx ny x y dx xstart xend dy ystart yend color 
+  global errf rfont
+  if {$errf == 1} {return 0}
+  set i [expr $xstart - 1]
+  set c 0
+  set cp $dwh
+  .c create line 0 $y $width $y -fill $color -tag axes
+  .c create line [expr $width - $dwh/3] [expr $y - $dwh/4] \
+       [expr $width - 1] $y [expr $width - $dwh/3] [expr $y + $dwh/4] \
+       -fill $color -tag axes
+  set yu [expr $y - $dwh/3]
+  set yd [expr $y + $dwh/3]
+  for {} {$i < $xend - 0.0001} \
+       {set i [expr $i + $dx]; incr c; set cp [expr $w*$dx*$c/$nx + $dwh]} {
+    .c create line $cp $yu $cp $yd -fill $color -tag axes
+    if {$i != -1} {
+      .c create text $cp [expr $yd + 1] -fill $color -text [expr $i + 1] \
+           -anchor n -font $rfont -tag axes
+    }
+  }
+  set i [expr $yend + 1]
+  set c 0
+  set cp [expr $dwh]
+  .c create line $x 0 $x $height -fill $color -tag axes
+  .c create line [expr $x - $dwh/4] [expr $dwh/3] $x 1 \
+       [expr $x + $dwh/4] [expr $dwh/3] -fill $color -tag axes
+  set xl [expr $x - $dwh/3]
+  set xr [expr $x + $dwh/3]
+  for {} {$i > $ystart + 0.0001} \
+       {set i [expr $i - $dy]; incr c; set cp [expr $h*$dy*$c/$ny + $dwh]} {
+    .c create line $xl $cp $xr $cp -fill $color -tag axes
+    if {$i != 1} {
+      .c create text [expr $xl - 1] $cp -fill $color -text [expr $i - 1] \
+           -anchor e -font $rfont -tag axes
+    }
+  }
+  .c create oval [expr $x - 1] [expr $y - 1] [expr $x + 1] \
+       [expr $y + 1] -outline $color -tag axes
+  .c create text [expr $x + 3] [expr $y + 0] -fill $color -text 0 \
+           -anchor sw -font $rfont -tag axes
+}
+
+set func func
+set legendcount 0
+proc showFunc {x1 x2 f1 legend color} {
+  global height width dwh w h nx ny xstart xend ystart yend 
+  global legendcount errf rfont ts
+  if {$errf == 1} {return 0}
+  set curx $x1
+  regsub -all x\\) $f1 {$curx+1e-12)} f
+  set cury [expr $f]
+  set rdx [expr ($nx+0.0001)/$w]
+  set otx [expr $dwh + ($x1 - $xstart)*$w/$nx]
+  set oty [expr $height - ($dwh + ($cury - $ystart)*$h/$ny)]
+  while {$curx <= $x2} {
+    set tx [expr $dwh + ($curx - $xstart)*$w/$nx]
+    set ty [expr $height - ($dwh + ($cury - $ystart)*$h/$ny)]
+    if {abs($ty - $oty) <= $h} {
+      .c create line $otx $oty $tx $ty -fill $color -tag func
+    }
+    set otx $tx
+    set oty $ty
+    set curx [expr $curx + $rdx]
+    set cury [expr $f]
+  }
+  .c create text [expr $width - $dwh] [expr $dwh + $legendcount*($ts+2)] \
+      -fill $color -text $legend -anchor e -tag {fig func} -font $rfont
+  incr legendcount
+}
+
+set repf 0
+proc setArea {xmax ymax color} {
+  global repf width height
+  set height $ymax
+  set width $xmax
+  if {$repf == 0} {
+    incr repf
+    canvas .c -width $xmax -height $ymax -background $color
+  } else {
+    .c configure -width $xmax -height $ymax -background $color
+  }
+  pack .c
+  .c bind fig <Button-3> {
+    set curX %x
+    set curY %y
+  }
+  .c bind fig <Button3-Motion> {
+    .c move current [expr (%x-$curX)] [expr (%y-$curY)]
+    set curX %x; set curY %y
+  }
+}
+
+wm resizable . 0 0
+bind . <Button-1> {set n 0}
+
+set n [gets stdin a]
+while {$n > 0} {
+  set na [lindex $a 1]  
+  switch [lindex $a 0] \
+    "area"	{set bg [lindex $a 3]; setArea $na [lindex $a 2] $bg} \
+    "setAxes"   {setAxesVars $na [lindex $a 2] [lindex $a 3] [lindex $a 4] \
+                  [lindex $a 5] [lindex $a 6] [lindex $a 7]} \
+    "showFunc"   {showFunc $na [lindex $a 2] [lindex $a 3] [lindex $a 4] \
+                  [lindex $a 5]} \
+    "showAxes"  {showAxes} \
+    "point"	{set $na [.c create rectangle [lindex $a 2] [lindex $a 3] \
+                  [lindex $a 2] [lindex $a 3] -outline [lindex $a 4] -tag fig]} \
+    "circumference"	{set $na [.c create oval \
+                  [expr [lindex $a 2] - [lindex $a 4]] \
+    		  [expr [lindex $a 3] - [lindex $a 4]] \
+    		  [expr [lindex $a 2] + [lindex $a 4]] \
+    		  [expr [lindex $a 3] + [lindex $a 4]] \
+                  -outline [lindex $a 5] -tag fig]}\
+    "circle"	{set $na [.c create oval \
+                  [expr [lindex $a 2] - [lindex $a 4]] \
+    		  [expr [lindex $a 3] - [lindex $a 4]] \
+    		  [expr [lindex $a 2] + [lindex $a 4]] \
+    		  [expr [lindex $a 3] + [lindex $a 4]] \
+                  -outline [lindex $a 5] -fill [lindex $a 5] \
+                  -tag fig]} \
+    "rectangle"	{set $na [.c create rectangle \
+                  [lindex $a 2] [lindex $a 3] [lindex $a 4] [lindex $a 5] \
+                  -outline [lindex $a 6] -fill [lindex $a 6] -tag fig]} \
+    "line"	{set $na [.c create line [lindex $a 2] [lindex $a 3] \
+                  [lindex $a 4] [lindex $a 5] \
+                  -fill [lindex $a 6] -tag fig]} \
+    "text"	{set $na [.c create text [lindex $a 2] [lindex $a 3] \
+    		  -fill [lindex $a 4] -text [lindex $a 5] -anchor w \
+                  -font $rfont -tag fig]} \
+    "move"	{.c move [expr \$$na] [lindex $a 2] [lindex $a 3]} \
+    "delete"	{.c delete [expr \$$na]} \
+    "pause"	{while {$n > 0} {update}}
+  update
+  set n [gets stdin a]
+}
+exit
