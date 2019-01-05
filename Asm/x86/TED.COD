@@ -1,0 +1,547 @@
+TEDEXTRA:       ADD     EAX,[TOTALTICKS]
+                MOV     DI,[VD_PTR_BEAM]        ;EXTRA
+                MOV     [DI],EAX
+                MOV     [DI+4],EAX
+                RETN
+
+TED0:           CMP     [TICKS2TED],0           ;free .L16, .L33, ...
+                JZ      TED0
+
+                DEC     [TICKS2TED]
+                INC     [TOTALTICKS]
+                CMP     [TED_1E],36H*2            ;DMA FETCH START
+                JNE     .L2
+
+                CMP     [ISDMANOW],1
+                JB      .L2
+
+                JA      .L12
+
+                MOV     BX,[DMA_BASE]
+                ADD     BH,[VM_BASE]
+                MOV     CX,10
+                XOR     SI,SI
+.ATTR:          MOV     EAX,[FS:BX]
+                MOV     DWORD [VID_BUF1+SI],EAX
+                ADD     SI,4
+                ADD     BX,4
+                AND     BH,0FBH
+                LOOP    .ATTR
+                JMP     .L2
+
+.L12:           MOV     BX,[DMA_BASE]
+                XOR     SI,SI
+                MOV     CX,10
+                ADD     BH,[VM_BASE]
+.CHAR:          MOV     EAX,[FS:BX+400H]
+                MOV     DWORD [VID_BUF2+SI],EAX
+                MOV     EAX,DWORD [VID_BUF1+SI]
+                MOV     DWORD [VID_BUF3+SI],EAX
+                ADD     SI,4
+                ADD     BX,4
+                AND     BH,0FBH
+                LOOP    .CHAR
+
+.L2:            MOV     AL,[BEAMX]
+                CMP     AL,[SHVA]
+                JAE     .L9
+
+                CMP     AL,[EHVA]
+                JA      .COUNTERS
+
+.L9:            CMP     [ISDMA],1               ;DMA?
+                JB      .BORDER
+
+                JA      .L2A
+
+                CALL    TEDEXTRA
+                JMP     .L2B
+
+.L2A:           CMP     [TED_1E],38*2
+                JBE     .L2C
+
+                CMP     [TED_1E],56*2
+                JNZ     .BORDER
+
+                CALL    TEDEXTRA
+.L2C:           MOV     SI,[CP_CURRENT]
+                SUB     SI,WORD [TED_1A]
+                LGS     BX,[MDATA_ADDR]
+                MOV     DL,[VID_BUF2+SI]        ;DH-ATTR, DL-CHAR
+                MOV     DH,[VID_BUF3+SI]
+                MOV     SI,[VMODE]
+                MOV     DI,[VD_PTR_FILL]
+                CALL    [VMJT+SI]
+                INC     [CP_CURRENT]
+
+.L2B:           MOV     AL,[TED_1E]
+		SHR	AL,1
+                CMP     AL,[EHSA]
+                JNZ     .L2E
+
+                OR      [ISBORDER],2
+                JMP     .BORDER
+
+.L2E:           CMP     AL,[SHSA]
+                JNZ     .L2D
+
+                AND     [ISBORDER],1
+.L2D:           CMP     [ISBORDER],0
+                JE      .SHOW8
+
+.BORDER:        MOV     EAX,[BORDER_COLOR]
+                MOV     DI,[VD_PTR_BEAM]
+                MOV     [DI],EAX
+                MOV     [DI+4],EAX
+.SHOW8:         CMP     [VISIBLE],0
+                JE      .COUNTERS
+
+        ;cmp [BEAMY],294
+        ;jnz .ll1
+        ;
+        ;mov eax,[TOTALTICKS]
+        ;MOV     [DI],EAX
+        ;MOV     [DI+4],EAX
+;.ll1:
+                ADD     DWORD [VD_PTR_BEAM],80008H
+.COUNTERS:      CMP     [ISDMA],2
+                JNE     .L14
+
+                CMP     [TED_1E],37H*2
+                JNE     .L8
+
+                MOV     AX,[X_OFFSET]
+                ADD     AX,[VD_PTR_BEAM]
+                MOV     [VD_PTR_FILL],AX
+                JMP     .L23
+
+.L8:            CMP     [TED_1E],34H*2
+                JNE     .L7
+
+                INC     [VSA]
+                AND     [VSA],7
+                JMP     .L23
+
+.L7:            CMP     [TED_1E],35H*2
+                JNE     .L6
+
+                MOV     AX,WORD [TED_1A]
+                MOV     [CP_CURRENT],AX
+                JMP     .L23
+
+.L6:            CMP     [TED_1E],28H*2
+                JNE     .L5
+
+                CMP     [VSA],6
+                JNE     .L23
+
+                ADD     [DMA_BASE],40
+                AND     BYTE [DMA_BASE+1],3
+                JMP     .L23
+
+.L5:            CMP     [TED_1E],26H*2
+                JNE     .L14
+
+                CMP     [VSA],7
+                JNE     .L23
+
+                MOV     AX,[CP_CURRENT]
+                AND     AH,3
+                MOV     WORD [TED_1A],AX
+                JMP     .L23
+
+.L14:           CMP     [TED_1E],29H*2    ;2F-30?
+                JNE     .L25
+
+                CMP     [ISDMANOW],0
+                JE      .L23
+
+                MOV     AL,[TED_1C]
+                AND     AL,7
+                CMP     AL,BYTE [Y_OFFSET]
+                JNE     .L23
+
+                MOV     [ISDMANOW],1
+                JMP     .L23
+
+.L25:           CMP     [TED_1E],33H*2
+                JNE     .L19
+
+                MOV     [CLADDR],LBLAF
+                MOV     AX,WORD [TED_1C]
+                TEST    [TED_13],2      ;SINGLE CLOCK MODE?
+                JZ      .L3
+
+                MOV     [CLADDR],LBLAS
+.L3:            CMP     AX,203
+                JE      .L22
+
+                JB      .L4
+
+                CMP     AX,204
+                JA      .L4
+
+                MOV     [ISDMA],0
+                MOV     [ISDMANOW],0
+                JMP     .L23
+
+.L22:           MOV     [ISDMANOW],0
+                CMP     [ISDMA],0
+                JE      .L23
+
+                MOV     [CLADDR],LNORMF
+                TEST    [TED_13],2      ;SINGLE CLOCK MODE?
+                JZ      .L23
+
+                MOV     [CLADDR],LNORMS
+                JMP     .L23
+
+.L4:            CMP     [ISDMA],0
+                JE      .L23
+
+                MOV     [CLADDR],LNORMF
+                TEST    [TED_13],2      ;SINGLE CLOCK MODE?
+                JZ      .L1
+
+                MOV     [CLADDR],LNORMS
+.L1:            AND     AL,7
+                CMP     AL,BYTE [Y_OFFSET]
+                JNE     .L12H
+
+                MOV     [ISDMANOW],1
+                JMP     .L10
+
+.L12H:          CMP     [ISDMANOW],1
+                JB      .L23
+
+                MOV     [ISDMANOW],0
+                JA      .L23
+
+                MOV     [ISDMANOW],2
+                MOV     [ISDMA],2
+.L10:           MOV     [CLADDR],LDMAF
+                TEST    [TED_13],2      ;SINGLE CLOCK MODE?
+                JZ      .L23
+
+                MOV     [CLADDR],LDMAS
+                JMP     .L23
+
+.L19:           CMP     [TED_1E],31H*2
+                JNE     .L23
+
+                CMP     [VD_PTR_BEAM],VIDEO_DATA
+                JE      .L30
+
+        push es
+        mov ax,0b800h
+        mov es,ax
+        mov byte [es:0],'@'
+        pop es
+                CALL    [VIDCJMP]
+.L30:           MOV     [VD_PTR_BEAM],VIDEO_DATA
+                INC     WORD [TED_1C]
+                AND     [TED_1D],1
+                INC     [BEAMY]
+                MOV     [RIRQ],0
+                MOV     AX,WORD [TED_1C]
+                CMP     AX,268                  ;V-SYNC
+                JNZ     .L17
+
+                MOV     [BEAM_POS],0
+                MOV     [BEAMY],0
+                MOV     [VISIBLE],0
+                INC     [RETRACE_COUNT]
+                CMP     [MAINJUMP],MAINLOOP     ;DEBUGGER?
+                JNZ     .L29
+
+                MOVZX   AX,BYTE [RETRACE_COUNT] ;FRAMES SKIP
+                DIV     [FRAMESKIP]
+                MOVZX   SI,[VIDMODE]
+                OR      AH,AH
+                MOV     AX,[VIDJUMP+SI]
+                JE      .L28
+
+                MOV     AX,T00xxx
+.L28:           MOV     [VIDCJMP],AX
+.L29:           CALL    [VIDVRETRACE]
+                CALL    CDS_LED
+                CALL    GET_JOYS
+                CMP     [TOTALTICKS],0FF000000H
+                JBE     .L17A
+
+                CALL    SEG_CODEX:ADJUST_TICKS_F
+.L17A:          MOV     AX,WORD [TED_1C]
+.L17:           CMP     AX,[SVSA]
+                JNZ     .L31
+
+                AND     [ISBORDER],2
+.L31:           CMP     AX,[EVSA]
+                JNZ     .L24
+
+                OR      [ISBORDER],1
+.L24:           MOV     AX,[BEAMY]
+                MOV     [VISIBLE],0
+                CMP     AX,[EVVA]
+                JA      .L32
+
+                CMP     AX,[SVVA]
+                JB      .L32
+
+                INC     [VISIBLE]
+.L32:           CMP     WORD [TED_1C],MAX_VER+1
+                JNE     .L23
+
+                INC     [BLINK_COUNT]
+                JNZ     .L18
+
+                MOV     [BLINK_COUNT],0F0H
+                XOR     [VMODE],20H
+.L18:           XOR     EAX,EAX
+                MOV     [VSA],7
+                MOV     WORD [ISDMANOW],AX
+                MOV     DWORD [CP_CURRENT],EAX
+                MOV     DWORD [TED_1A],EAX
+                CALL    SEG_CODEX:NPARAM
+                CALL    SYS_KEYS
+                TEST    [TED_6],10H             ;SCREEN BLANK?
+                JZ      .L23
+
+                INC     [ISDMA]
+.L23:           MOV     AX,[FASTTEDB]
+                CMP     AX,WORD [TED_1C]        ;RASTER INTERRUPT?
+                JNZ     .L27
+
+                CMP     [RIRQ],0
+                JNE     .L27
+
+                INC     [RIRQ]
+                OR      [TED_9],2
+.L27:           DEC     WORD [TED_0]            ;TIMERS INTERRUPT?
+                JNZ     .L20
+
+                MOV     AX,[TIMER1_RELOAD]
+                MOV     WORD [TED_0],AX
+                OR      [TED_9],8
+.L20:           DEC     WORD [TED_2]
+                JNZ     .L21
+
+                OR      [TED_9],10H
+.L21:           DEC     WORD [TED_4]
+                JNZ     .L26
+
+                OR      [TED_9],40H
+.L26:           MOV     AL,[TED_9]
+                AND     AL,[TED_A]
+                AND     AL,5AH          ;???
+                JZ      .L11
+
+                BTS     WORD [TED_9],7
+                JC      .L11
+
+                MOV     AX,[CPUOP]
+                MOV     [IRQOP],AX
+.L11:           MOVZX   BX,[TED_1E]
+		SHR	BX,1
+                MOV     SI,[CLADDR]
+                MOV     AL,[BX+SI]
+                MOV     [TICKS],AL
+                INC     [BEAMX]
+                INC     [TED_1E]
+		RETN
+
+TED1:		INC     [TED_1E]
+		INC     [BEAMX]
+                CMP     [TED_1E],39H*2
+                JB      .L15
+
+                MOV     [TED_1E],0
+                MOV     [BEAMX],0
+.L15:           
+
+T00xxx:         RETN
+
+T00100:         MOV     SI,DX           ;*** MCM+
+                AND     SI,7FH
+                BTR     DX,11
+                JC      T01100.L1
+
+                MOV     CH,[GS:EBX+ESI*8]       ;MATRIX LINE
+                OR      DL,DL
+                JNS     T00000.L0A
+
+                JMP     T00000.L0B
+
+T01100:         BTR     DX,11           ;*** MCM+ HRV+
+                JNC     T01000
+
+                MOVZX   SI,DL
+.L1:            MOV     CH,[GS:EBX+ESI*8]       ;MATRIX LINE
+                MOV     AX,[COLOR1]             ;SI-0, AX-1, BX-2, DX-3
+                MOV     BX,[COLOR2]
+                MOV     DL,DH
+                JMP     T00101.L0
+
+T01000:         MOVZX   SI,DL           ;*** HRV+
+                MOV     CH,[GS:EBX+ESI*8]       ;MATRIX LINE
+                MOV     SI,[CP_CURRENT]
+                CMP     SI,WORD [TED_C]
+                JNZ     T00000.L0A
+
+                MOVZX   SI,DL
+                MOV     CH,[GS:EBX+ESI*8]       ;MATRIX LINE
+                NOT     CH
+                JMP     T00000.L0A
+
+T00000:         MOV     SI,DX           ;***
+                AND     SI,7FH
+                MOV     CH,[GS:EBX+ESI*8]       ;MATRIX LINE
+                MOV     SI,[CP_CURRENT]
+                CMP     SI,WORD [TED_C]
+                JNZ     .L9
+
+                NOT     CH
+.L9:            OR      DL,DL
+                JNS     .L0A
+
+.L0B:           NOT     CH
+.L0A:           MOV     CL,[TED_15]
+.L0:            TEST    CH,16
+                MOV     AL,CL
+                JZ      .L1
+
+                MOV     AL,DH
+.L1:            TEST    CH,32
+                MOV     AH,CL
+                JZ      .L2
+
+                MOV     AH,DH
+.L2:            BSWAP   EAX
+                TEST    CH,64
+                MOV     AH,CL
+                JZ      .L3
+
+                MOV     AH,DH
+.L3:            TEST    CH,128
+                MOV     AL,CL
+                JZ      .L4
+
+                MOV     AL,DH
+.L4:            MOV     [DI],EAX
+                TEST    CH,1
+                MOV     AL,CL
+                JZ      .L5
+
+                MOV     AL,DH
+.L5:            TEST    CH,2
+                MOV     AH,CL
+                JZ      .L6
+
+                MOV     AH,DH
+.L6:            BSWAP   EAX
+                TEST    CH,4
+                MOV     AH,CL
+                JZ      .L7
+
+                MOV     AH,DH
+.L7:            TEST    CH,8
+                MOV     AL,CL
+                JZ      .L8
+
+                MOV     AL,DH
+.L8:            MOV     [DI+4],EAX
+                RETN
+
+T11000:         OR      DH,DH                   ;*** HRV+ FLASH+
+                JS      V1_00
+
+                MOVZX   SI,DL
+                MOV     CH,[GS:EBX+ESI*8]       ;MATRIX LINE
+                JMP     T00000.L0A
+
+V1_00:          MOV     EAX,[COLOR0]
+                MOV     [DI],EAX
+                MOV     [DI+4],EAX
+                RETN
+
+T10000:         OR      DH,DH                   ;*** FLASH+
+                JS      .L2
+
+                MOV     SI,DX
+                AND     SI,7FH
+                MOV     CH,[GS:EBX+ESI*8]       ;MATRIX LINE
+                JMP     T00000.L9
+
+.L2:            OR      DL,DL
+                JNS     V1_00
+
+                MOV     DL,DH
+                MOV     AX,DX
+                BSWAP   EAX
+                MOV     AX,DX
+                MOV     [DI],EAX
+                MOV     [DI+4],EAX
+                RETN
+
+T00010:         MOV     SI,DX                   ;*** ECM+
+                AND     SI,3FH
+                MOV     CH,[GS:EBX+ESI*8]       ;MATRIX LINE
+                MOVZX   BX,DL
+                SHR     BL,6
+                MOV     CL,[TED_15+BX]          ;BACKGROUND
+                JMP     T00000.L0
+
+T00001:         MOV     SI,[CP_CURRENT]         ;*** BMM+
+                MOV     CH,[GS:EBX+ESI*8]       ;MATRIX LINE
+                MOV     AL,DH
+                MOV     DH,DL
+                MOV     AH,AL
+                AND     DX,0FF0H
+                AND     AX,7007H
+                OR      AL,DL
+                OR      DH,AH           ;BACKGROUND
+                ROL     AL,4            ;FOREGROUND
+                XCHG    AL,DH
+                MOV     CL,AL
+                JMP     T00000.L0
+
+T00101:         MOV     SI,[CP_CURRENT]         ;*** BMM+ MCM+
+                MOV     CH,[GS:EBX+ESI*8]       ;MATRIX LINE
+                MOV     AL,DH
+                MOV     DH,DL
+                MOV     AH,AL
+                AND     DX,0FF0H
+                AND     AX,7007H
+                OR      AL,DL
+                OR      DH,AH           ;COLOR #2
+                ROL     AL,4            ;COLOR #1
+                MOV     AH,AL
+                MOV     DL,DH
+                MOV     BX,[COLOR1]     ;SI-0, AX-1, BX-2, DX-3
+                XCHG    BX,DX
+
+.L0:            MOV     SI,WORD [COLOR0]
+                MOV     CL,4
+.L1:            SHL     CH,1
+                JNC     .L0X
+
+                SHL     CH,1
+                JNC     .L10
+
+                MOV     [DI],DX         ;11
+                JMP     .LE
+
+.L0X:           SHL     CH,1
+                JNC     .L00
+
+                MOV     [DI],AX         ;01
+                JMP     .LE
+
+.L10:           MOV     [DI],BX         ;10
+                JMP     .LE
+
+.L00:           MOV     [DI],SI         ;00
+.LE:            ADD     DI,2
+
+                LOOP    .L1
+                RETN
+

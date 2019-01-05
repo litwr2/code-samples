@@ -1,0 +1,2252 @@
+RESTSOUND:      MOV     BX,0FF11H
+                MOV     DH,[TED_11]
+                CALL    SEG_CODE:MSTORE_DH_F
+                RETN
+
+CPUCYCLE:       CALL    SEG_CODE:CPUCYCLE_F
+                RETN
+
+ADJUST_CPU:     MOV     [TICKS],0
+.L2:            CMP     [CPUOP],FETCHBYTE1
+                JZ      .L1
+
+                CALL    SEG_CODE:TED_FAR
+                CALL    CPUCYCLE
+                CMP     [CPUOP],FETCHBYTE1
+                JZ      .L1
+
+                CALL    CPUCYCLE
+                JMP     .L2
+
+.L1:            RETN
+
+DEBUG_ENTRY_F:  CALL    ADJUST_CPU
+                CALL    INIT_DEBUG
+                CALL    D_DISPATCHER
+                CALL    EXIT_DEBUG
+                JMP     SEG_CODE:MAIN_ENTRY
+
+INIT_DEBUG:     MOV     AX,[PC]
+                MOV     [APC],AX
+                MOV     [DPC],AX
+                MOV     [UPC],AX
+                CALL    SAVE_TED
+                MOV     AX,3
+                INT     10H
+
+                XOR     BX,BX
+                CMP     [ZOOM_MODE],BL
+                JNE     .L1
+
+                MOV     AX,1112H
+                INT     10H
+
+.L1:            MOV     [CURSOR],BX
+                MOV     DX,SDMSG
+                JMP     OUT_STR
+
+EXIT_DEBUG:     CALL    RESTORE_TED
+                JMP     CPUCYCLE
+
+SAVE_TED:       MOVZX   SI,[VIDMODE]
+                MOV     AX,[VIDJUMP+(1+MAXVIDMODEN)*2+SI]
+                MOV     [VIDCJMP],AX
+                CALL    SEG_CODE:SAVEVIDJMP_F
+
+.L0:            NOT     [TIMER_ST]
+                RETN
+
+RESTORE_TED:    MOVZX   SI,[VIDMODE]
+                MOV     AX,[VIDJUMP+SI]
+                MOV     [VIDCJMP],AX
+                CALL    SEG_CODE:RESTVIDJMP_F
+
+.L0:            CALL    RESTSOUND
+                MOV     DWORD [KMATRIX],0FFFFFFFFH
+                MOV     DWORD [KMATRIX+4],0FFFFFFFFH
+                NOT     [TIMER_ST]
+                RETN
+
+SAVE_DEBUG:     MOV     AH,3
+                XOR     BH,BH
+                INT     10H
+                MOV     [CURSOR],DX
+
+                PUSH    DS
+                MOV     AX,0B800H
+                MOV     DS,AX
+                MOV     AX,SEG_DBG
+.L1:            MOV     ES,AX
+                MOV     CX,4000
+                XOR     SI,SI
+                XOR     DI,DI
+.L2:            MOVSB
+                INC     SI
+                LOOP    .L2
+
+                POP     DS
+                RETN
+
+RESTORE_DEBUG:  MOV     AX,3
+                INT     10H
+
+                XOR     BX,BX
+                CMP     [ZOOM_MODE],BH
+                JNE     .L1
+
+                MOV     AX,1112H
+                INT     10H
+
+.L1:            MOV     AH,2            ;PUT CURSOR AT GIVEN POS
+                MOV     DX,[CURSOR]
+                INT     10H
+
+.L1C:           MOV     DX,EOL
+                CALL    OUT_STR
+
+                MOV     AH,3
+                INT     10H
+
+                MOV     CH,24
+                CMP     [ZOOM_MODE],BH
+                JNE     .L1B
+
+                MOV     CH,49
+.L1B:           CMP     DH,CH
+                JNZ     .L1C
+
+                MOV     DX,EOL
+                CALL    OUT_STR
+
+                MOV     AH,2            ;PUT CURSOR AT GIVEN POS
+                MOV     DX,[CURSOR]
+                INT     10H
+
+                PUSH    DS
+                MOV     AX,SEG_DBG
+                MOV     DS,AX
+                MOV     AX,0B800H
+                MOV     ES,AX
+                MOV     CX,4000
+                XOR     SI,SI
+                XOR     DI,DI
+                MOV     AL,7
+.L2:            MOVSB
+                STOSB
+                LOOP    .L2
+
+                POP     DS
+                RETN
+
+INPUT_LINE:     MOV     DL,'-'
+                MOV     AH,2
+                INT     21H
+
+.L8:            MOV     AH,0AH
+                MOV     DX,KBD_BUF_B
+                INT     21H
+                MOVZX   CX,[KBD_BUF_L]
+
+                XOR     SI,SI
+                XOR     BX,BX
+.L7:            CMP     CX,SI
+                JZ      .L5
+
+                MOV     AX,WORD [KBD_BUF+SI]
+                INC     SI
+
+                CMP     AL,'a'          ;LOWER TO UPPER CASE CONVERSION
+                JB      .L2
+
+                CMP     AL,'z'
+                JA      .L2
+
+                SUB     AL,32
+.L2:            CMP     AH,'a'          ;LOWER TO UPPER CASE CONVERSION
+                JB      .L1
+
+                CMP     AH,'z'
+                JA      .L1
+
+                SUB     AH,32
+.L1:            CMP     AL,' '
+                JNZ     .L6
+
+                CMP     BL,2
+                JB      .L7
+
+                CMP     CX,SI
+                JZ      .L5
+
+                MOV     AL,','
+                CMP     AH,'0'
+                JB      .L7
+
+                CMP     AH,'9'
+                JBE     .L6A
+
+                CMP     AH,'A'
+                JB      .L7
+
+                CMP     AH,'F'
+                JBE     .L6A
+
+                CMP     AH,'L'
+                JNZ     .L7
+
+.L6A:           MOV     AH,[INP_BUF-1+BX]
+                CMP     AH,'0'
+                JB      .L7
+
+                CMP     AH,'9'
+                JBE     .L6
+
+                CMP     AH,'A'
+                JB      .L7
+
+                CMP     AH,'F'
+                JA      .L7
+
+.L6:            MOV     [INP_BUF+BX],AL
+                INC     BX
+                JMP     .L7
+
+.L5:            MOV     [INP_BUF+BX],0  ;SET EOL MARKER
+                INC     BX
+                MOV     [LINP_BUF],BX
+                MOV     DX,EOL
+                JMP     OUT_STR
+
+TRAN_VAL:       MOV     EAX,30303030H   ;IN: SI,DI / OUT: AX / TEMP: EAX,DX
+.L2A:           CMP     [INP_BUF+SI],0
+                JZ      .L1A
+
+                SHL     EAX,8
+                MOV     AL,[INP_BUF+SI]
+                INC     SI
+                CMP     SI,DI
+                JNZ     .L2A
+
+                STC
+                RETN
+
+.L1A:           MOV     DX,AX
+                CALL    HEX2BIN
+                JC      .L1
+
+                MOV     AH,AL
+                ROR     EAX,16
+                MOV     DX,AX
+                CALL    HEX2BIN
+                JC      .L1
+
+                ROL     EAX,8
+                CLC
+.L1:            RETN
+
+OUTSPC:         MOV     AH,2
+                MOV     DL,' '
+                INT     21H
+                DEC     CL
+                JNZ     OUTSPC
+
+                RETN
+
+SHOW_CLOCKS:    MOV     AL,BYTE [T_CLOCK_SUM+2]
+                CALL    BIN2HEX
+                MOV     WORD [D_O_BUF],DX
+                MOV     BX,WORD [T_CLOCK_SUM]
+                MOV     AL,BH
+                CALL    BIN2HEX
+                MOV     WORD [D_S_BUF],DX
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [D_S_BUF+2],DX
+                MOV     DX,D_O_BUF
+                JMP     OUT_STR
+
+OUT_DAS:        MOV     AL,BH           ;IN: BX=BP / OUT: BP
+                CALL    BIN2HEX
+                MOV     WORD [REGS2],DX
+
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [REGS2+2],DX
+
+                CALL    SEG_CODE:MREAD_DH_F
+                MOV     DL,DH
+                INC     BX
+                CALL    SEG_CODE:MREAD_DH_F
+                SHL     EDX,16
+                INC     BX
+                CALL    SEG_CODE:MREAD_DH_F
+                MOV     DL,DH
+                INC     BX
+                CALL    SEG_CODE:MREAD_DH_F
+                ROL     EDX,16
+                MOV     EAX,EDX
+                SUB     BX,3
+                MOVZX   SI,AL
+                MOV     CL,[OPCL+SI]
+                XOR     CH,CH
+                ADD     BP,CX
+                CMP     CL,3
+                PUSHF
+                PUSH    EAX
+
+                SHL     EAX,8
+                MOV     SI,5
+.L1:            MOV     AL,AH
+                CALL    BIN2HEX
+                MOV     WORD [REGS2+SI],DX
+                SHR     EAX,8
+                ADD     SI,2
+                DEC     CL
+                JNZ     .L1
+
+                MOV     DL,' '
+.L2:            MOV     [REGS2+SI],DL
+                INC     SI
+                CMP     SI,11
+                JC      .L2
+
+                POP     EAX
+                POPF
+                JNZ     .L3
+
+                ROR     EAX,8
+                XCHG    AL,AH
+                ROL     EAX,8
+
+.L3:            XOR     BH,BH
+                MOV     BL,AL
+                
+                SHL     BX,4            ;BX:=BX*16
+                MOV     SI,12
+.L8:            MOV     AL,[MN_T+BX]
+                OR      AL,AL
+                JZ      .L5
+
+                JNS     .L4
+
+                CMP     AL,253
+                MOV     AL,AH
+                JZ      .L6
+
+.L7:            CALL    BIN2HEX
+                MOV     WORD [REGS2+SI],DX
+                ADD     SI,2
+                ADD     BX,2
+                SHR     EAX,8
+                JMP     .L8
+
+.L6:            XOR     AH,AH
+                CBW
+                ADD     AX,BP
+                MOV     CL,AL
+                MOV     AL,AH
+                CALL    BIN2HEX
+                MOV     WORD [REGS2+SI],DX
+                ADD     SI,2
+                ADD     BX,2
+                MOV     AL,CL
+                JMP     .L7
+
+.L4:            MOV     [REGS2+SI],AL
+                INC     BX
+                INC     SI
+                JMP     .L8
+
+.L5:            MOV     DX,REGS2
+                MOV     AH,40H
+                MOV     BX,1
+                MOV     CX,29
+                CMP     [ODM],AL        ;AL=0 !!!
+                JE      OUT_STR.L1
+
+                MOV     CL,27
+                INT     21H
+                MOV     CL,17
+                CALL    OUTSPC
+                MOV     [D_BUF1],'('
+                MOV     WORD [D_BUF1+5],')='
+                MOV     BX,[PC]
+                CALL    SEG_CODE:MREAD_DH_F
+                MOVZX   SI,DH
+                MOV     AL,[OCAM+SI]
+                INC     BX
+                CALL    SEG_CODE:MREAD_DH_F
+                MOV     DL,DH
+                INC     BX
+                CALL    SEG_CODE:MREAD_DH_F
+                MOVZX   BX,DL
+                OR      AL,AL
+                JNZ     .L5_1
+
+                MOV     DX,EOL
+                JMP     OUT_STR
+
+.L5_1:          DEC     AL
+                JNZ     .L5_2
+
+                ADD     BL,[XR]          ; (zp,X)
+                CALL    SEG_CODE:MREAD_DH_F
+                MOV     DL,DH
+                INC     BL
+                CALL    SEG_CODE:MREAD_DH_F
+                MOV     BX,DX
+                JMP     .L9
+
+.L5_2:          DEC     AL
+                JNZ     .L5_3
+
+                CALL    SEG_CODE:MREAD_DH_F        ;(zp),Y
+                MOV     DL,DH
+                INC     BL
+                CALL    SEG_CODE:MREAD_DH_F
+                ADD     DL,[YR]
+                ADC     DH,0
+                MOV     BX,DX
+                JMP     .L9
+
+.L5_3:          DEC     AL
+                JZ      .L9                     ;zp
+
+                DEC     AL
+                JNZ     .L5_4
+
+                ADD     BL,[XR]        ;zp,X
+                JMP     .L9
+
+.L5_4:          DEC     AL
+                JNZ     .L5_5
+
+                ADD     BL,[YR]        ;zp,Y
+                JMP     .L9
+
+.L5_5:          MOV     BH,DH
+                DEC     AL
+                JZ      .L9       ;abs
+
+                DEC     AL
+                JNZ     .L5_7
+
+                ADD     BL,[YR]         ;abs,Y
+                ADC     BH,0
+                JMP     .L9
+
+.L5_7:          DEC     AL
+                JNZ     .L5_8
+
+                ADD     BL,[XR]         ;abs,X
+                ADC     BH,0
+                JMP     .L9
+
+.L5_8:          CALL    SEG_CODE:MREAD_DH_F        ;(abs)
+                MOV     DL,DH
+                INC     BL
+                CALL    SEG_CODE:MREAD_DH_F
+                MOV     BX,DX
+
+.L9:            MOV     AL,BH
+                CALL    BIN2HEX
+                MOV     WORD [D_BUF1+1],DX
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [D_BUF1+3],DX
+                CALL    SEG_CODE:MREAD_DH_F
+                MOV     AL,DH
+                CALL    BIN2HEX
+                MOV     WORD [D_BUF1+7],DX
+                MOV     DWORD [D_BUF1+9],240A0DH
+                MOV     DX,D_BUF1
+OUT_STR:        MOV     AH,9
+.L1:            INT     21H
+                RETN
+
+GET_TPARS:      CALL    GET_PARS                
+                JC      .L2
+
+                MOV     SI,1
+                MOV     [VAL1],SI
+
+                CMP     [QPARS],0
+                JZ      .L2
+
+                CMP     [QPARS],2
+                JBE     .L4
+
+.L5:            STC
+                RETN
+
+.L4:            JNZ     .L1
+
+                CMP     [INP_BUF+1],'='
+                JNZ     .L5
+
+                INC     SI
+                MOV     DI,7
+                CALL    TRAN_VAL
+                JC      .L2
+
+                MOV     [PC],AX
+                MOV     SI,[PPARS+2]
+.L3:            MOV     DI,SI
+                ADD     DI,5
+                CALL    TRAN_VAL
+                JC      .L2
+
+                MOV     [VAL1],AX
+                JMP     .L2
+
+.L1:            CMP     [INP_BUF+1],'='
+                JNZ     .L3
+
+                INC     SI
+                MOV     DI,7
+                CALL    TRAN_VAL
+                JC      .L2
+
+                MOV     [PC],AX
+.L2:            RETN
+
+GET_MPARS:      CALL    GET_PARS
+                JC      .L1
+
+                CMP     [QPARS],3
+                JZ      .L2
+
+.L5:            STC
+                RETN
+
+.L2:            MOV     SI,1
+                MOV     DI,6
+                CALL    TRAN_VAL
+                JC      .L1
+
+                MOV     [CPC],AX
+                MOV     SI,[PPARS+2]
+                CMP     [INP_BUF+SI],'L'
+                JNZ     .L4
+
+                INC     SI
+                MOV     DI,SI
+                ADD     DI,5
+                CALL    TRAN_VAL
+                JC      .L1
+
+                SUB     DI,5
+                CMP     SI,DI
+                JZ      .L5
+
+                ADD     AX,[CPC]
+                DEC     AX
+                MOV     [EPC],AX
+                JMP     .L3
+
+.L4:            MOV     DI,SI
+                ADD     DI,5
+                CALL    TRAN_VAL
+                JC      .L1
+
+                MOV     [EPC],AX
+.L3:            MOV     SI,[PPARS+4]
+                MOV     DI,SI
+                ADD     DI,5
+                CALL    TRAN_VAL
+                JC      .L1
+
+                MOV     DI,AX
+                MOV     BX,[CPC]
+                MOV     CX,[EPC]
+                SUB     CX,BX
+                INC     CX
+.L1:            RETN
+
+GET_FPARS:      CALL    GET_PARS
+                JC      .L3
+
+                MOV     CL,[QPARS]
+                SUB     CL,2
+                JA      .L4
+
+                STC
+                RETN
+
+.L4:            XOR     BX,BX
+                MOV     SI,1
+                MOV     DI,6
+                CALL    TRAN_VAL
+                JC      .L3
+
+                MOV     [CPC],AX
+                MOV     SI,[PPARS+2]
+                CMP     [INP_BUF+SI],'L'
+                JNZ     .L2
+
+                INC     SI
+                MOV     DI,SI
+                ADD     DI,5
+                CALL    TRAN_VAL
+                JC      .L3
+
+                ADD     AX,[CPC]
+                DEC     AX
+                MOV     [EPC],AX
+                JMP     .L1
+
+.L2:            MOV     DI,SI
+                ADD     DI,5
+                CALL    TRAN_VAL
+                JC      .L3
+
+                MOV     [EPC],AX
+.L1:            MOV     SI,[PPARS+BX+4]
+                MOV     DI,SI
+                ADD     DI,3
+                CALL    TRAN_VAL
+                JC      .L3
+
+                SHR     BX,1
+                MOV     [D_BUF1+BX],AL
+                SHL     BX,1
+                ADD     BL,2
+                DEC     CL
+                JNZ     .L1
+
+                MOV     BX,[CPC]
+                MOV     CX,[EPC]
+                SUB     CX,BX
+                INC     CX
+.L3:            RETN
+
+SHOW_REGS:      MOV     BX,[PC]
+                MOV     [UPC],BX
+                MOV     AL,BH
+                CALL    BIN2HEX
+                MOV     WORD [REGS1+3],DX
+
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [REGS1+5],DX
+
+                MOV     AX,WORD [TED_1C]
+                OR      AH,30H
+                MOV     [REGS1+58],AH
+                CALL    BIN2HEX
+                MOV     WORD [REGS1+59],DX
+
+                MOV     AL,[TED_1E]
+                CALL    BIN2HEX
+                MOV     WORD [REGS1+66],DX
+
+                MOV     BX,0FF1EH
+                CALL    SEG_CODE:MREAD_DH_F
+                ;MOV     AL,[TICKS]
+                ;SHL     AL,1
+                ;NEG     AL
+                ;ADD     AL,DH
+                MOV     AL,DH
+                CALL    BIN2HEX
+                MOV     WORD [REGS1+69],DX
+
+                MOV     AL,[TICKS]      ;2CPU
+                CALL    BIN2HEX
+                MOV     [REGS1+77],DH
+
+                MOV     AL,[AC]
+                CALL    BIN2HEX
+                MOV     WORD [REGS1+12],DX
+
+                MOV     AL,[XR]
+                CALL    BIN2HEX
+                MOV     WORD [REGS1+19],DX
+
+                MOV     AL,[YR]
+                CALL    BIN2HEX
+                MOV     WORD [REGS1+26],DX
+
+                MOV     AL,BYTE [SPR]
+                CALL    BIN2HEX
+                MOV     WORD [REGS1+33],DX
+
+                MOV     AL,BYTE [SR]
+                PUSH    AX
+                CALL    BIN2HEX
+                MOV     WORD [REGS1+40],DX
+
+                POP     AX
+                MOV     [REGS1+44],'-'
+                OR      AL,AL
+                JNS     .L1
+
+                MOV     [REGS1+44],'S'
+.L1:            MOV     [REGS1+45],'-'
+                TEST    AL,40H
+                JZ      .L2
+
+                MOV     [REGS1+45],'V'
+.L2:            MOV     [REGS1+47],'-'
+                TEST    AL,10H
+                JZ      .L3
+
+                MOV     [REGS1+47],'B'
+.L3:            MOV     [REGS1+48],'-'
+                TEST    AL,8
+                JZ      .L4
+
+                MOV     [REGS1+48],'D'
+.L4:            MOV     [REGS1+49],'-'
+                TEST    AL,4
+                JZ      .L5
+
+                MOV     [REGS1+49],'I'
+.L5:            MOV     [REGS1+50],'-'
+                TEST    AL,2
+                JZ      .L6
+
+                MOV     [REGS1+50],'Z'
+.L6:            MOV     [REGS1+51],'-'
+                TEST    AL,1
+                JZ      .L7
+
+                MOV     [REGS1+51],'C'
+.L7:            MOV     DX,REGS1
+                CALL    OUT_STR
+
+                MOV     BX,[PC]
+                MOV     BP,BX
+                MOV     [ODM],1
+                JMP     OUT_DAS
+
+RROUT:          CALL    CPUCYCLE
+                CALL    SEG_CODE:TED_FAR
+.L5:            CALL    CPUCYCLE
+                CMP     [CPUOP],FETCHBYTE1
+                JZ      .L4
+
+                CALL    CPUCYCLE
+                CMP     [CPUOP],FETCHBYTE1
+                JNZ     RROUT
+
+.L4:            TEST    [KBUFA],40H
+                JZ      .L2
+
+                XOR     AX,AX
+                XCHG    AX,WORD [KBUFS]
+                CMP     AL,0C4H         ;F10
+                JNZ     .L6
+
+                JMP     SEG_CODE:END_EMU
+
+.L6:            CMP     AL,0C3H         ;F9
+                JZ      .L3
+
+                CMP     AL,0D7H         ;F11
+                JNZ     .L2
+
+                CALL    XRESET
+.L2:            MOV     CX,WORD [D_BUF1]
+                JCXZ    RROUT
+
+                PUSH    DS
+                POP     ES
+                MOV     AX,[PC]
+                MOV     DI,D_BUF1+2
+                REPNZ   SCASW
+                JNZ     RROUT
+
+.L3:            RETN
+
+LROUT:          CALL    CPUCYCLE
+                CALL    SEG_CODE:TED_FAR
+.L5:            CALL    CPUCYCLE
+                CMP     [CPUOP],FETCHBYTE1
+                JZ      .L4
+
+                CALL    CPUCYCLE
+                CMP     [CPUOP],FETCHBYTE1
+                JNZ     LROUT
+
+.L4:            TEST    [KBUFA],40H
+                JZ      .L2
+
+                XOR     AX,AX
+                XCHG    AX,WORD [KBUFS]
+                CMP     AL,0C4H         ;F10
+                JNZ     .L6
+
+                JMP     SEG_CODE:END_EMU
+
+.L6:            CMP     AL,0C3H         ;F9
+                JZ      .L3
+
+                CMP     AL,0D7H         ;F11
+                JNZ     .L2
+
+                CALL    XRESET
+.L2:            MOV     AX,WORD [TED_1C]
+                CMP     AX,WORD [D_BUF1]
+                JNZ     LROUT
+
+.L3:            RETN
+
+OROUT:          MOV     SI,[PC]         ;for O command
+                MOV     [OLD_PC],SI
+.L1:            CALL    CPUCYCLE
+                CALL    SEG_CODE:TED_FAR
+                CALL    CPUCYCLE
+                CMP     [CPUOP],FETCHBYTE1
+                JZ      .L4
+
+                CALL    CPUCYCLE
+                CMP     [CPUOP],FETCHBYTE1
+                JNZ     .L1
+
+.L4:            TEST    [KBUFA],40H
+                JZ      .L2
+
+                XOR     AX,AX
+                XCHG    AX,WORD [KBUFS]
+                CMP     AL,0C4H         ;F10
+                JNZ     .L6
+
+                JMP     SEG_CODE:END_EMU
+
+.L6:            CMP     AL,0C3H         ;F9
+                JZ      .L3
+
+                CMP     AL,0D7H         ;F11
+                JNZ     .L2
+
+                CALL    XRESET
+.L2:            CMP     [WATCHPOINT_FLAG],0
+                JNE     OROUT
+
+.L3:            RETN
+
+OUT_CHR:        MOV     AH,3
+                XOR     BH,BH
+                INT     10H
+
+                PUSH    SI
+                MOV     DL,32
+                MOV     SI,D_BUF2
+                MOV     BL,70H
+                MOV     CX,1
+.L1:            MOV     AH,2
+                INT     10H
+
+                MOV     AL,[SI]
+                MOV     AH,09H
+                INT     10H
+                INC     DL
+                INC     SI
+
+                DEC     BP
+                JNZ     .L1
+                POP     SI
+                RETN
+
+GET_PARS:       XOR     BX,BX
+                XOR     SI,SI
+.L2:            INC     SI
+.L2A:           CMP     [INP_BUF+SI],BH
+                JE      .L1
+
+                CMP     [INP_BUF+SI],','
+                JNZ     .L2
+
+                MOV     [INP_BUF+SI],BH
+                CMP     SI,[PPARS+BX]
+                JNZ     .L3
+
+.L5:            STC
+                RETN
+
+.L3:            ADD     BL,2
+                INC     SI
+                MOV     [PPARS+BX],SI
+                JMP     .L2A
+
+.L1:            CMP     SI,[PPARS+BX]
+                JNZ     .L4
+
+                OR      BL,BL
+                JNZ     .L5
+
+                MOV     [QPARS],BH
+                RETN
+
+.L4:            ADD     BL,2
+                SHR     BX,1
+                MOV     [QPARS],BL
+                RETN
+
+D_DISPATCHER:   CALL    SEG_CODE:SILENCE_F
+                CALL    INPUT_LINE
+.L0:            MOV     [BREAK_FLAG],0
+                MOV     AX,WORD [INP_BUF]
+                CMP     AL,'A'
+                JZ      D_A
+
+        cmp AL,'B'
+        jz D_B
+                CMP     AL,'C'
+                JZ      D_C
+
+                CMP     AL,'D'
+                JZ      D_D
+
+                CMP     AL,'E'
+                JZ      D_E
+
+                CMP     AL,'F'
+                JZ      D_F
+
+                CMP     AL,'G'
+                JZ      D_G
+
+                CMP     AL,'H'
+                JZ      D_H
+
+                CMP     AL,'L'
+                JZ      D_L
+
+                CMP     AL,'M'
+                JZ      D_M
+
+                CMP     AL,'N'
+                JZ      D_N
+
+                CMP     AL,'O'
+                JZ      D_O
+
+                CMP     AL,'P'
+                JZ      D_P
+
+                CMP     AL,'Q'
+                JZ      D_Q
+
+                CMP     AL,'R'
+                JZ      D_R
+
+                CMP     AL,'S'
+                JZ      D_S
+
+                CMP     AL,'T'
+                JZ      D_T
+
+                CMP     AL,'U'
+                JZ      D_U
+
+                CMP     AL,'V'
+                JZ      D_V
+
+                CMP     AL,'W'
+                JZ      D_W
+
+                CMP     AL,'Y'
+                JZ      D_Y
+
+                CMP     AL,'Z'
+                JZ      D_Z
+
+                CMP     AL,'?'
+                JZ      D_HELP
+
+                CMP     AL,'X'
+                JZ      D_X
+
+                CMP     AL,'!'
+                JNZ     .L1
+
+                JMP     SEG_CODE:END_EMU
+
+.L1:            MOV     DX,SDMSG
+                JMP     D_ERRX
+
+D_HELP:         MOV     DX,D_HELPM      ;HELP
+                JMP     D_ERRX
+
+D_ERR:          MOV     DX,DERR1
+D_ERRX:         CALL    OUT_STR
+                JMP     D_DISPATCHER
+
+D_A:            MOV     SI,1            ;ASSEMBLE
+                MOV     DI,6
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                DEC     SI
+                JZ      .L18
+
+                MOV     [APC],AX
+.L18:           MOV     AX,[APC]
+                MOV     [EPC],AX
+                MOV     BX,AX
+                MOV     AL,AH
+                CALL    BIN2HEX
+                MOV     WORD [D_A_BUF],DX
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [D_A_BUF+2],DX
+                MOV     DX,D_A_BUF
+                CALL    OUT_STR
+                CALL    INPUT_LINE.L8           ; =INPUT_LINE
+                CMP     [INP_BUF],0
+                JE      D_DISPATCHER
+
+                XOR     SI,SI
+                MOV     [SSI],SI
+.L6A:           MOV     AL,[INP_BUF+SI]
+                OR      AL,AL
+                JZ      .L5A
+
+                CMP     AL,'$'
+                JNZ     .L7A
+                
+                MOV     [SSI],SI
+                INC     [SSI]
+.L7A:           CMP     [SSI],0
+                JE      .L7
+
+                CMP     AL,'0'
+                JB      .L7
+
+                CMP     AL,'F'
+                JA      .L7
+
+                CMP     AL,'9'
+                JBE     .L7B
+
+                CMP     AL,'A'
+                JB      .L7
+
+.L7B:           MOV     AL,'þ'
+.L7:            MOV     [D_BUF2+SI],AL
+                INC     SI
+                JMP     .L6A
+
+.L5A:           MOV     [D_BUF2+SI],AL
+                XOR     DX,DX
+.L10:           MOV     BX,DX
+                SHL     BX,4
+                XOR     SI,SI
+.L6:            MOV     AL,[MN_T+BX]
+                CMP     AL,' '
+                JZ      .L4
+
+                OR      AL,AL
+                JZ      .L5
+
+                MOV     [D_BUF1+SI],AL
+                INC     SI
+.L4:            INC     BX
+                JMP     .L6
+
+.L5:            MOV     [D_BUF1+SI],AL
+                SHR     BX,4
+                MOV     SI,D_BUF1
+                MOV     DI,D_BUF2
+                PUSH    DS
+                POP     ES
+                MOV     CX,[LINP_BUF]
+                REPZ    CMPSB
+                MOV     DI,[SSI]
+                JZ      .L8
+
+                CMP     BYTE [DS:SI],'ý'
+                JZ      .L14
+
+                INC     DL
+                JNZ     .L10
+
+.L17:           MOV     CL,3
+                CALL    OUTSPC
+                MOV     DX,DERR1
+                CALL    OUT_STR
+                JMP     .L18
+
+.L14:           MOV     SI,[APC]
+                MOV     DX,WORD [INP_BUF+DI+2]
+                XCHG    DL,DH
+                SHL     EDX,16
+                MOV     DX,WORD [INP_BUF+DI]
+                XCHG    DL,DH
+                CALL    HEX2BIN
+                JC      .L17
+
+                MOV     AH,AL
+                SHR     EDX,16
+                CALL    HEX2BIN
+                JC      .L17
+
+                MOV     CX,AX
+                SUB     AX,[APC]
+                SUB     AX,2
+                PUSH    AX
+                CBW
+                ADD     AX,[APC]
+                ADD     AX,2
+                CMP     AX,CX
+                POP     AX
+                JNZ     .L17
+
+                ADD     [APC],2
+                MOV     DH,BL
+                MOV     BX,SI
+                CALL    SEG_CODE:MSTORE_DH_F
+                INC     BX
+                MOV     DH,AL
+                CALL    SEG_CODE:MSTORE_DH_F
+                JMP     .L18B
+
+.L8:            MOV     CL,[OPCL+BX]
+                MOV     SI,[APC]
+                MOV     DH,BL
+                MOV     BX,SI
+                CALL    SEG_CODE:MSTORE_DH_F
+                CMP     CL,1
+                JZ      .L18A
+
+                MOV     DX,WORD [INP_BUF+DI]
+                XCHG    DL,DH
+                ADD     DI,2
+                CMP     [D_BUF2+DI],'þ'
+                JNZ     .L16
+
+                SHL     EDX,16
+                MOV     DX,WORD [INP_BUF+DI]
+                XCHG    DL,DH
+                ROL     EDX,16
+                CALL    HEX2BIN
+                JC      .L17
+
+                MOV     DH,AL
+                ADD     BX,2
+                CALL    SEG_CODE:MSTORE_DH_F
+                SHR     EDX,16
+.L16:           CALL    HEX2BIN
+                JC      .L17
+
+                MOV     BX,SI
+                INC     BX
+                MOV     DH,AL
+                CALL    SEG_CODE:MSTORE_DH_F
+.L18A:          ADD     [APC],CX
+.L18B:          MOV     AH,3
+                XOR     BH,BH
+                INT     10H
+                DEC     DH
+                MOV     AH,2
+                INT     10H
+
+                MOV     BX,[EPC]
+                MOV     BP,BX
+                MOV     [ODM],0
+                CALL    OUT_DAS
+                JMP     .L18
+
+D_C:            CALL    GET_MPARS       ;COMPARE
+                JC      D_ERR
+
+                MOV     SI,BX
+.L1:            MOV     BX,SI
+                CALL    SEG_CODE:MREAD_DH_F
+                MOV     DL,DH
+                XCHG    BX,DI
+                CALL    SEG_CODE:MREAD_DH_F
+                XCHG    BX,DI
+                INC     DI
+                INC     SI
+                DEC     CX
+                CMP     DL,DH
+                MOV     BP,DX
+                JNZ     .L1A
+
+                OR      CX,CX
+                JZ      D_DISPATCHER
+
+                JMP     .L1
+
+.L1A:           MOV     AX,SI
+                DEC     AX
+                MOV     BX,AX
+                MOV     AL,AH
+                CALL    BIN2HEX
+                MOV     WORD [D_C_BUF],DX
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [D_C_BUF+2],DX
+
+                MOV     AX,DI
+                DEC     AX
+                MOV     BX,AX
+                MOV     AL,AH
+                CALL    BIN2HEX
+                MOV     WORD [D_C_BUF+14],DX
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [D_C_BUF+16],DX
+                MOV     AX,BP
+                CALL    BIN2HEX
+                MOV     WORD [D_C_BUF+6],DX
+                MOV     AX,BP
+                MOV     AL,AH
+                CALL    BIN2HEX
+                MOV     WORD [D_C_BUF+10],DX
+                MOV     DX,D_C_BUF
+                CALL    OUT_STR
+
+                OR      CX,CX
+                JNZ     .L1
+                JMP     D_DISPATCHER
+
+D_D:            CALL    GET_PARS        ;DUMP
+                JC      D_ERR
+
+                CMP     [QPARS],2
+                JA      D_ERR
+
+                MOV     SI,1
+                CMP     [INP_BUF+1],'L'
+                JZ      .L8
+                
+                MOV     DI,6
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                DEC     SI
+                JZ      .L18
+
+                MOV     [DPC],AX
+.L18:           MOV     AX,[DPC]
+                ADD     AX,63           ;DEFAULT DUMP LENGTH-1
+                JNC     .L18X
+
+                MOV     AX,0FFFFH
+.L18X:          MOV     [EPC],AX
+                CMP     [QPARS],2
+                JNZ     .L3A
+
+                MOV     SI,[PPARS+2]
+                CMP     [INP_BUF+SI],'L'
+                JNZ     .L4
+
+.L8:            INC     SI
+                MOV     DI,SI
+                ADD     DI,5
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                SUB     DI,5
+                CMP     SI,DI
+                JZ      D_ERR
+
+                ADD     AX,[DPC]
+                DEC     AX
+                MOV     [EPC],AX
+                JMP     .L3A
+
+.L4:            MOV     DI,SI
+                ADD     DI,5
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                MOV     [EPC],AX
+.L3A:           MOV     SI,[DPC]
+                SUB     AX,SI
+                JC      D_ERR
+                
+                INC     AX
+                MOV     CX,AX
+                MOV     DI,SI
+.L7:            ADD     DI,8
+                MOV     AX,SI
+                MOV     BX,AX
+                MOV     AL,AH
+                CALL    BIN2HEX
+                MOV     WORD [D_A_BUF],DX
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [D_A_BUF+2],DX
+                MOV     DX,D_A_BUF
+                CALL    OUT_STR
+                XOR     BX,BX
+.L6:            XCHG    SI,BX
+                CALL    SEG_CODE:MREAD_DH_F
+                MOV     AL,DH
+                XCHG    SI,BX
+                MOV     [D_BUF2+BX],AL
+                CALL    BIN2HEX
+                MOV     WORD [D_D_BUF+1],DX
+                MOV     DX,D_D_BUF
+                CALL    OUT_STR
+                INC     SI
+                INC     BX
+                DEC     CX
+                JZ      .L5
+
+                CMP     SI,DI
+                JNZ     .L6
+
+                MOV     BP,8
+                PUSH    CX
+                CALL    OUT_CHR
+                POP     CX
+                MOV     DX,EOL
+                CALL    OUT_STR
+                CMP     [BREAK_FLAG],0
+                JNE     D_DISPATCHER
+
+                JMP     .L7
+
+.L5:            MOV     [DPC],SI
+                SUB     SI,DI
+                ADD     SI,8
+                MOV     BP,SI
+                CALL    OUT_CHR
+                MOV     DX,EOL
+                JMP     D_ERRX
+
+D_E:            CALL    GET_PARS        ;ENTER
+                JC      D_ERR
+
+                MOVZX   CX,[QPARS]
+                DEC     CX
+                JS      D_ERR
+                
+                MOV     SI,1
+                MOV     DI,6
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                MOV     [CPC],AX
+                JCXZ    .L8
+
+                XOR     BX,BX
+.L1:            MOV     SI,[PPARS+BX+2]
+                MOV     DI,SI
+                ADD     DI,3
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                SHR     BX,1
+                MOV     [D_BUF1+BX],AL
+                INC     BX
+                SHL     BX,1
+                DEC     CX
+                JNZ     .L1
+
+                MOV     BX,[CPC]
+                MOV     CL,[QPARS]
+                MOV     SI,D_BUF1
+.L2:            DEC     CX
+                JZ      D_DISPATCHER
+                
+                MOV     DH,[SI]
+                CALL    SEG_CODE:MSTORE_DH_F
+                INC     BX
+                INC     SI
+                JMP     .L2
+
+.L8:            MOV     AX,[CPC]
+                MOV     BX,AX
+                MOV     AL,AH
+                CALL    BIN2HEX
+                MOV     WORD [D_E_BUF],DX
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [D_E_BUF+2],DX
+                CALL    SEG_CODE:MREAD_DH_F
+                MOV     AL,DH
+                CALL    BIN2HEX
+                MOV     WORD [D_E_BUF+6],DX
+                MOV     DX,D_E_BUF
+                CALL    OUT_STR
+                CALL    INPUT_LINE.L8           ; =INPUT_LINE
+                CMP     [INP_BUF],0
+                JZ      D_DISPATCHER
+
+                XOR     SI,SI
+                MOV     DI,3
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                MOV     BX,[CPC]
+                MOV     DH,AL
+                CALL    SEG_CODE:MSTORE_DH_F
+                JMP     D_DISPATCHER
+
+D_F:            CALL    GET_FPARS       ;FILL
+                JC      D_ERR
+
+.L6:            MOV     AL,[QPARS]
+                MOV     DI,D_BUF1
+                SUB     AL,2
+.L5:            MOV     DH,[DI]
+                CALL    SEG_CODE:MSTORE_DH_F
+                INC     BX
+                INC     DI
+                DEC     CX
+                JZ      D_DISPATCHER
+
+                DEC     AL
+                JNZ     .L5
+
+                JMP     .L6
+
+D_G:            CALL    GET_PARS        ;GO
+                JC      D_ERR
+
+                CMP     WORD [INP_BUF],'GL'
+                JE      .L4
+
+                MOVZX   CX,[QPARS]
+                XOR     BX,BX
+                XOR     DI,DI
+                JCXZ    .L2
+
+                MOV     SI,1
+                CMP     [INP_BUF+1],'='
+                JNZ     .L2
+
+                INC     SI
+                MOV     DI,7
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                MOV     [PC],AX
+                MOV     DI,2
+                DEC     CX
+.L2:            MOV     WORD [D_BUF1],CX
+                JCXZ    .L1
+
+.L3:            MOV     SI,[PPARS+BX+DI]
+                PUSH    DI
+                MOV     DI,SI
+                ADD     DI,5
+                CALL    TRAN_VAL
+                POP     DI
+                JC      D_ERR
+
+                ADD     BL,2
+                MOV     WORD [D_BUF1+BX],AX
+                DEC     CX
+                JNZ     .L3
+
+.L1:            CALL    SAVE_DEBUG
+                CALL    RESTORE_TED
+                CALL    RROUT
+                CALL    SAVE_TED
+                CALL    RESTORE_DEBUG
+                CALL    SHOW_REGS
+                JMP     D_DISPATCHER
+
+.L4:            PUSH    DI
+                MOV     DI,SI
+                INC     DI
+                MOV     SI,2
+                CALL    TRAN_VAL
+                POP     DI
+                JC      D_ERR
+
+                MOV     WORD [D_BUF1],AX
+                CALL    SAVE_DEBUG
+                CALL    RESTORE_TED
+                CALL    LROUT
+                CALL    SAVE_TED
+                CALL    RESTORE_DEBUG
+                CALL    SHOW_REGS
+                JMP     D_DISPATCHER
+
+D_H:            CALL    GET_PARS        ;HEX
+                JC      D_ERR
+
+                CMP     [QPARS],2
+                JNZ     D_ERR
+
+                MOV     SI,1
+                MOV     DI,6
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                MOV     [VAL1],AX
+                MOV     SI,[PPARS+2]
+                MOV     DI,SI
+                ADD     DI,5
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                MOV     [VAL2],AX
+                ADD     AX,[VAL1]
+                PUSH    AX
+                MOV     AL,AH
+                CALL    BIN2HEX
+                MOV     WORD [D_H_BUF],DX
+                POP     AX
+                CALL    BIN2HEX
+                MOV     WORD [D_H_BUF+2],DX
+                MOV     AX,[VAL1]
+                SUB     AX,[VAL2]
+                PUSH    AX
+                MOV     AL,AH
+                CALL    BIN2HEX
+                MOV     WORD [D_H_BUF+6],DX
+                POP     AX
+                CALL    BIN2HEX
+                MOV     WORD [D_H_BUF+8],DX
+                MOV     DX,D_H_BUF
+                JMP     D_ERRX
+
+D_L:            CALL    GET_PARS        ;LOAD
+                JC      D_ERR
+
+                CMP     [QPARS],1
+                JA      D_ERR
+
+                MOV     DX,FNAME
+                MOV     AX,3D00H
+                INT     21H
+                MOV     DX,DERR2
+                JC      D_ERRX
+
+                MOV     BX,AX
+                MOV     AX,4202H
+                XOR     CX,CX
+                XOR     DX,DX
+                INT     21H
+                JC      .L3
+
+                OR      DX,DX
+                JNZ     .L3
+
+                MOV     DI,AX           ;SAVE LENGTH
+                MOV     AX,4200H
+                XOR     CX,CX
+                XOR     DX,DX
+                INT     21H
+                JC      .L3
+
+                CMP     [QPARS],1
+                JE      .L1
+
+                MOV     DX,VAL1
+                MOV     CX,2
+                MOV     AH,3FH
+                INT     21H
+                JC      .L3
+
+                SUB     DI,2
+                MOV     DX,[VAL1]
+                JMP     .L2
+
+.L1:            MOV     SI,1
+                PUSH    DI
+                MOV     DI,6
+                CALL    TRAN_VAL
+                POP     DI
+                JC      D_ERR
+
+                MOV     DX,AX
+.L2:            PUSH    DS
+                PUSH    FS
+                POP     DS
+                MOV     AH,3FH
+                MOV     CX,DI
+                INT     21H
+                POP     DS
+                JC      .L3
+
+                CMP     AX,DI
+                JNZ     .L3
+
+                MOV     AH,3EH
+                INT     21H
+                JMP     D_DISPATCHER
+
+.L3:            MOV     AH,3EH
+                INT     21H
+                MOV     DX,DERR3
+                JMP     D_ERRX
+
+D_M:            CALL    GET_MPARS       ;MOVE
+                JC      D_ERR
+                
+.L1:            CALL    SEG_CODE:MREAD_DH_F
+                XCHG    BX,DI
+                CALL    SEG_CODE:MSTORE_DH_F
+                XCHG    BX,DI
+                INC     BX
+                INC     DI
+                DEC     CX
+                JNZ     .L1
+                JMP     D_DISPATCHER
+
+D_N:            CALL    GET_PARS        ;NAME
+                JC      D_ERR
+
+                CMP     [QPARS],1
+                JNZ     D_ERR
+
+                MOV     CX,[LINP_BUF]
+                DEC     CX
+                PUSH    DS
+                POP     ES
+                MOV     SI,INP_BUF+1
+                MOV     DI,FNAME
+                REP     MOVSB
+                JMP     D_DISPATCHER
+
+D_O:            CALL    GET_PARS        ;WATCHPOINT(S)
+                JC      D_ERR
+
+                MOVZX   CX,[QPARS]
+                XOR     BX,BX
+                XOR     DI,DI
+                JCXZ    .L2
+
+                MOV     SI,1
+                CMP     [INP_BUF+1],'='
+                JNZ     .L2
+
+                INC     SI
+                MOV     DI,7
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                MOV     [PC],AX
+                MOV     DI,2
+                DEC     CX
+                
+.L2:            MOV     WORD [D_BUF1],CX
+                JCXZ    .L1
+
+.L3:            MOV     SI,[PPARS+BX+DI]
+                PUSH    DI
+                MOV     DI,SI
+                ADD     DI,5
+                CALL    TRAN_VAL
+                POP     DI
+                JC      D_ERR
+
+                ADD     BL,2
+                MOV     WORD [D_BUF1+BX],AX
+                DEC     CX
+                JNZ     .L3
+
+.L1:            CALL    SAVE_DEBUG
+                CALL    RESTORE_TED
+                INC     [WATCHPOINT_FLAG]
+                CALL    OROUT
+                MOV     [WATCHPOINT_FLAG],0
+                CALL    SAVE_TED
+                CALL    RESTORE_DEBUG
+                MOV     BX,[OLD_PC]
+                MOV     AL,BH
+                CALL    BIN2HEX
+                MOV     WORD [REGS0+7],DX
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [REGS0+9],DX
+                MOV     DX,REGS0
+                CALL    OUT_STR
+                CALL    SHOW_REGS
+                JMP     D_DISPATCHER
+
+D_P:            CALL    GET_TPARS               ;TRACE PROC
+                JC      D_ERR
+
+                CALL    SAVE_DEBUG
+                CALL    RESTORE_TED
+.L2:            MOV     AX,[PC]
+                MOV     WORD [D_BUF1],3
+                INC     AX
+                MOV     WORD [D_BUF1+2],AX
+                INC     AX
+                MOV     WORD [D_BUF1+4],AX
+                INC     AX
+                MOV     WORD [D_BUF1+6],AX
+                CALL    RROUT
+                DEC     [VAL1]
+                JNZ     .L2
+
+                CALL    SAVE_TED
+                CALL    RESTORE_DEBUG
+                CALL    SHOW_REGS
+                JMP     D_DISPATCHER
+
+D_Q:            RETN
+
+D_ERR2:         MOV     DX,DERR1+1
+                JMP     D_ERRX
+
+D_R:            MOV     AX,WORD [INP_BUF+1]         ;REGISTER
+                OR      AL,AL
+                JNZ     .L1
+
+                CALL    SHOW_REGS
+                JMP     D_DISPATCHER
+
+.L1:            MOV     CX,3
+                CMP     AX,'AC'
+                MOV     DI,AC
+                JZ      .L2
+
+                CMP     AX,'XR'
+                MOV     DI,XR
+                JZ      .L2
+
+                CMP     AX,'YR'
+                MOV     DI,YR
+                JZ      .L2
+
+                CMP     [INP_BUF+3],0
+                JNE     D_ERR2
+
+                CMP     AX,'SP'
+                MOV     DI,SPR
+                JZ      .L2
+
+                CMP     AX,'SR'
+                MOV     DI,SR
+                JZ      .L2
+
+                CMP     AX,'PC'
+                MOV     DI,PC
+                JNZ     D_ERR2
+
+                ADD     CX,2
+.L2:            MOV     DL,':'
+                MOV     AH,2
+                INT     21H
+
+                PUSH    CX
+                CALL    INPUT_LINE.L8           ; =INPUT_LINE
+                POP     CX
+                CMP     [INP_BUF],0
+                JZ      D_DISPATCHER
+
+                XOR     SI,SI
+                PUSH    DI
+                MOV     DI,CX
+                CALL    TRAN_VAL
+                POP     DI
+                JC      D_ERR2
+
+                OR      SI,SI
+                JZ      D_DISPATCHER
+
+                MOV     [DI],AL
+                OR      [SR],20H
+                CMP     CL,5
+                JNZ     D_DISPATCHER
+
+                MOV     [DI+1],AH
+                JMP     D_DISPATCHER
+
+D_S:            CALL    GET_FPARS       ;SEARCH
+                JC      D_ERR
+
+                DEC     CX              ;BETTER CX <- (CX - [QPARS])
+.L6:            MOV     AL,[QPARS]
+                MOV     DI,D_BUF1
+                SUB     AL,2
+                MOV     SI,BX
+.L1:            CALL    SEG_CODE:MREAD_DH_F
+                INC     BX
+                CMP     DH,[DI]
+                JNZ     .L5
+
+                INC     DI
+                DEC     AL
+                JNZ     .L1
+
+                MOV     AX,SI
+                MOV     AL,AH
+                CALL    BIN2HEX
+                MOV     WORD [D_S_BUF],DX
+                MOV     AX,SI
+                CALL    BIN2HEX
+                MOV     WORD [D_S_BUF+2],DX
+                MOV     DX,D_S_BUF
+                CALL    OUT_STR
+.L5:            MOV     BX,SI
+                INC     BX
+                DEC     CX
+                JNZ     .L6
+
+                JMP     D_DISPATCHER
+
+D_T:            CALL    GET_TPARS               ;TRACE
+                JC      D_ERR
+
+                MOV     DWORD [T_CLOCK_SUM],0
+                NOT     [TIMER_ST]
+.L5:            CALL    CPUCYCLE
+                CALL    SEG_CODE:TED_FAR
+                CALL    CPUCYCLE
+                CMP     [CPUOP],IRQSEQ
+                JZ      .IRQ
+
+                CMP     [CPUOP],FETCHBYTE1
+                JZ      .L2
+
+                CALL    CPUCYCLE
+                CMP     [CPUOP],IRQSEQ
+                JZ      .IRQ
+
+                CMP     [CPUOP],FETCHBYTE1
+                JNZ     .L5
+
+.L2:            CMP     DWORD [T_CLOCK_SUM],0
+                JE      .L5
+
+                DEC     [VAL1]
+                JNZ     .L5
+
+                NOT     [TIMER_ST]
+                CALL    SHOW_CLOCKS
+                CALL    SHOW_REGS
+                JMP     D_DISPATCHER
+
+.IRQ:           MOV     WORD [D_BUF1],1
+                MOV     AX,[PC]
+                MOV     WORD [D_BUF1+2],AX
+                CALL    RROUT
+                JMP     .L5
+
+D_U:            CALL    GET_PARS        ;UNASSEMBLE
+                JC      D_ERR
+
+                CMP     [QPARS],2
+                JA      D_ERR
+
+                MOV     SI,1
+                CMP     [INP_BUF+1],'L'
+                JZ      .L8
+                
+                MOV     DI,6
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                DEC     SI
+                JZ      .L18
+
+                MOV     [UPC],AX
+.L18:           MOV     AX,[UPC]
+                ADD     AX,31           ;DEFAULT DUMP LENGTH-1
+                JNC     .L18X
+
+                MOV     AX,0FFFFH
+.L18X:          MOV     [EPC],AX
+                CMP     [QPARS],2
+                JNZ     .L3A
+
+                MOV     SI,[PPARS+2]
+                CMP     [INP_BUF+SI],'L'
+                JNZ     .L4
+
+.L8:            INC     SI
+                MOV     DI,SI
+                ADD     DI,5
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                ADD     AX,[UPC]
+                DEC     AX
+                MOV     [EPC],AX
+                JMP     .L3A
+
+.L4:            MOV     DI,SI
+                ADD     DI,5
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                MOV     [EPC],AX
+.L3A:           SUB     AX,[UPC]
+                JC      D_ERR
+
+                INC     AX
+.L3:            MOV     BX,[UPC]
+                MOV     BP,BX
+                PUSH    AX
+                MOV     [ODM],0
+                CALL    OUT_DAS
+                MOV     AX,[UPC]
+                MOV     [UPC],BP
+                SUB     BP,AX
+                POP     AX
+.L2:            DEC     AX
+                JZ      D_DISPATCHER
+
+                CMP     [BREAK_FLAG],0
+                JNE     D_DISPATCHER
+
+                DEC     BP
+                JNZ     .L2
+
+                JMP     .L3
+
+D_V:            CALL    SAVE_DEBUG              ;VIEW CBM SCREEN
+                CALL    RESTORE_TED
+                NOT     [TIMER_ST]
+                CALL    SEG_CODE:SILENCE_F
+                MOV     AH,86H          ;DELAY
+                XOR     CX,7
+                INT     15H
+
+.L1:            CALL    WAITM
+                TEST    BX,3
+                JNZ     .L2
+
+                MOV     AH,1
+                INT     16H
+                JZ      .L1
+
+.L3:            XOR     AH,AH
+                INT     16H
+                MOV     AH,1
+                INT     16H
+                JNZ     .L3
+
+.L2:            NOT     [TIMER_ST]
+                CALL    SAVE_TED
+                CALL    RESTORE_DEBUG
+                JMP     D_DISPATCHER
+
+D_W:            CALL    GET_PARS                ;WRITE
+                JC      D_ERR
+
+                CMP     [QPARS],3
+                JA      D_ERR
+
+                CMP     [QPARS],2
+                JB      D_ERR
+
+                XOR     BP,BP
+                MOV     DX,FNAME
+                MOV     CX,20H
+                MOV     AH,3CH
+                INT     21H
+                JC      .L2
+
+                MOV     BX,AX
+                MOV     SI,1
+                MOV     DI,6
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                MOV     [VAL1],AX
+                MOV     DI,5
+                MOV     SI,[PPARS+2]
+                CMP     [INP_BUF+SI],'L'
+                JNZ     .L5
+
+                INC     SI
+                ADD     DI,SI
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                MOV     [VAL2],AX
+                JMP     .L6
+
+.L5:            ADD     DI,SI
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                SUB     AX,[VAL1]
+                JB      D_ERR
+
+                MOV     [VAL2],AX
+.L6:            CMP     [QPARS],2
+                JE      .L1A
+
+                MOV     SI,[PPARS+4]
+                MOV     DI,SI
+                ADD     DI,2
+                CALL    TRAN_VAL
+                JC      .L3
+
+                OR      AL,AL
+                JNZ     .L1
+
+.L1A:           MOV     AH,40H
+                MOV     DX,VAL1
+                MOV     CX,2
+                MOV     BP,CX
+                INT     21H
+                JC      .L3
+
+.L1:            MOV     CX,[VAL2]
+                JCXZ    .L4
+
+                MOV     DX,[VAL1]
+                PUSH    DS
+                PUSH    FS
+                POP     DS
+                MOV     AH,40H
+                INT     21H
+                POP     DS
+                JC      .L3
+
+                CMP     AX,CX
+                JNZ     .L3
+
+.L4:            MOV     AH,3EH
+                INT     21H
+
+                MOV     AX,CX
+                ADD     AX,BP
+                MOV     BX,AX
+                MOV     AL,AH
+                CALL    BIN2HEX
+                MOV     WORD [D_W_BUF+8],DX
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [D_W_BUF+10],DX
+                MOV     DX,D_W_BUF
+                JMP     D_ERRX
+
+.L3:            MOV     AH,3EH
+                INT     21H
+.L2:            MOV     DX,DERR4
+                JMP     D_ERRX
+
+D_Y:            MOV     SI,1            ;CYCLE
+                MOV     [VAL1],SI
+                MOV     DI,6
+                CALL    TRAN_VAL
+                JC      D_ERR
+
+                DEC     SI
+                JZ      .L1
+
+                MOV     [VAL1],AX
+.L1:            NOT     [TIMER_ST]
+                MOV     DWORD [T_CLOCK_SUM],0
+                CALL    CPUCYCLE
+.L5:            CALL    SEG_CODE:TED_FAR
+                CALL    CPUCYCLE
+                CALL    CPUCYCLE
+                DEC     [VAL1]
+                JNZ     .L5
+
+                NOT     [TIMER_ST]
+                CALL    SHOW_CLOCKS
+                CALL    SHOW_REGS
+                CALL    INPUT_LINE
+                CMP     [INP_BUF],'Y'
+                JZ      D_Y
+
+.L2:            CMP     [CPUOP],FETCHBYTE1
+                JZ      D_DISPATCHER.L0
+
+                CALL    SEG_CODE:TED_FAR
+                CALL    CPUCYCLE
+                CMP     [CPUOP],FETCHBYTE1
+                JZ      D_DISPATCHER.L0
+
+                CALL    CPUCYCLE
+                JMP     .L2
+
+D_Z:            MOV     AH,3            ;ZOOM SCREEN ON/OFF
+                XOR     BX,BX
+                INT     10H
+                MOV     [CURSOR],DX
+
+                MOV     AX,1130H                
+                INT     10H
+
+                CMP     DL,49
+                MOV     CX,1112H
+                MOV     [ZOOM_MODE],BL
+                JNZ     .L1
+                
+                SUB     DH,24
+                JBE     .L2
+
+                MOV     BYTE [CURSOR+1],24
+                MOV     AL,DH
+                MOV     AH,6
+                XOR     CX,CX
+                MOV     BH,7
+                MOV     DX,314FH
+                INT     10H
+                XOR     BX,BX
+                INC     [ZOOM_MODE]
+.L2:            MOV     CX,1114H
+.L1:            MOV     AX,83H
+                INT     10H
+                MOV     AX,CX
+                INT     10H
+
+                MOV     DX,[CURSOR]
+                MOV     AH,2
+                INT     10H
+                JMP     D_DISPATCHER
+
+D_X:            MOV     BX,[DMA_BASE]
+                MOV     AL,BH
+                CALL    BIN2HEX
+                MOV     WORD [XVALS+6],DX
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [XVALS+8],DX
+
+                MOV     BX,[CP_CURRENT]
+                MOV     AL,BH
+                CALL    BIN2HEX
+                MOV     WORD [XVALS+21],DX
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [XVALS+23],DX
+
+                MOV     AL,[ISDMANOW]
+                ADD     AL,'0'
+                MOV     [XVALS+35],AL
+
+                MOV     AL,[ISDMA]
+                ADD     AL,'0'
+                MOV     [XVALS+43],AL
+
+                MOV     AX,[CLADDR]
+                CMP     AX,LDMAS
+                JNZ     .L4A
+
+                MOV     DWORD [XVALS+50],'DMAS'
+.L4A:           CMP     AX,LDMAF
+                JNZ     .L4B
+
+                MOV     DWORD [XVALS+50],'DMAF'
+.L4B:           CMP     AX,LNORMF
+                JNZ     .L4C
+
+                MOV     DWORD [XVALS+50],'NORF'
+.L4C:           CMP     AX,LNORMS
+                JNZ     .L4D
+
+                MOV     DWORD [XVALS+50],'N/BS'
+.L4D:           CMP     AX,LBLAF
+                JNZ     .L4E
+
+                MOV     DWORD [XVALS+50],'BLAF'
+
+.L4E:           MOV     BX,[EVSA]
+                MOV     AL,BH
+                CALL    BIN2HEX
+                MOV     [XVALS+60],DH
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [XVALS+61],DX
+
+                MOV     AL,[EHSA]
+                CALL    BIN2HEX
+                MOV     WORD [XVALS+69],DX
+
+                MOV     AL,[VM_BASE]            ;remove!
+                CALL    BIN2HEX
+                MOV     WORD [XVALS+78],DX
+
+                MOV     BX,[VD_PTR_BEAM]
+                SUB     BX,VIDEO_DATA
+                MOV     AL,BH
+                CALL    BIN2HEX
+                MOV     WORD [XVALS2+12],DX
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [XVALS2+14],DX
+
+                MOV     BX,[VD_PTR_FILL]
+                SUB     BX,VIDEO_DATA
+                MOV     AL,BH
+                CALL    BIN2HEX
+                MOV     WORD [XVALS2+29],DX
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [XVALS2+31],DX
+
+                MOV     BX,[VMODE]
+                MOV     AL,BH
+                CALL    BIN2HEX
+                MOV     WORD [XVALS2+40],DX
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [XVALS2+42],DX
+
+                MOV     BX,[BEAM_POS+2]
+                SUB     BX,SEG_VRAM1
+                MOV     AL,BH
+                CALL    BIN2HEX
+                MOV     WORD [XVALS2+55],DX
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [XVALS2+57],DX
+
+                MOV     BX,[BEAM_POS]
+                MOV     AL,BH
+                CALL    BIN2HEX
+                MOV     WORD [XVALS2+60],DX
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [XVALS2+62],DX
+
+                MOV     BX,[BEAMY]
+                MOV     AL,BH
+                CALL    BIN2HEX
+                MOV     [XVALS2+71],DH
+                MOV     AL,BL
+                CALL    BIN2HEX
+                MOV     WORD [XVALS2+72],DX
+
+                MOV     BX,0FFFDH               ;Reset & IRQ vectors
+                CALL    SEG_CODE:MREAD_DH_F
+                MOV     AL,DH
+                CALL    BIN2HEX
+                MOV     WORD [XVALS3+15],DX
+                DEC     BX
+                CALL    SEG_CODE:MREAD_DH_F
+                MOV     AL,DH
+                CALL    BIN2HEX
+                MOV     WORD [XVALS3+17],DX
+                ADD     BL,3
+                CALL    SEG_CODE:MREAD_DH_F
+                MOV     AL,DH
+                CALL    BIN2HEX
+                MOV     WORD [XVALS3+4],DX
+                DEC     BX
+                CALL    SEG_CODE:MREAD_DH_F
+                MOV     AL,DH
+                CALL    BIN2HEX
+                MOV     WORD [XVALS3+6],DX
+                MOV     AL,[BEAMX]
+                CALL    BIN2HEX
+                MOV     WORD [XVALS3+26],DX
+
+                MOV     DX,XVALS
+                CALL    OUT_STR
+
+                MOV     DWORD [INP_BUF+1],'FF00'
+                MOV     DWORD [INP_BUF+5],',L20'
+                MOV     [INP_BUF+9],0
+                JMP     D_D
+
+D_B:            XOR     SI,SI
+.L2:            MOV     BX,16                   ;max=25
+.L1:            MOV     AL,[IOBUF+SI]
+                CALL    BIN2HEX
+                MOV     WORD [D_D_BUF+1],DX
+                MOV     DX,D_D_BUF
+                CALL    OUT_STR
+                INC     SI
+                DEC     BX
+                JNZ     .L1
+
+                MOV     DX,EOL
+                CALL    OUT_STR
+                CMP     SI,16*10             ;26*20
+                JB      .L2
+
+                JMP     D_DISPATCHER
+

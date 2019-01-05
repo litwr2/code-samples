@@ -1,0 +1,89 @@
+KB_WAIT:        PUSH    CX
+                PUSH    AX
+                XOR     CX,CX
+.L1:            IN      AL,64H
+                TEST    AL,2
+                LOOPNE  .L1
+
+                POP     AX
+                POP     CX
+                RETN
+
+SET_LED:        CALL    KB_WAIT
+                MOV     AL,0EDH
+                OUT     60H,AL
+                MOV     AL,[LED]
+                PUSH    DS
+                PUSH    0
+                POP     DS
+                AND     BYTE [DS:417H],8FH
+                OR      [DS:417H],AL
+                POP     DS
+                SHR     AL,4
+                CALL    KB_WAIT
+                OUT     60H,AL
+                RETN
+
+SYS_KEYS:       CMP     [ISMOUSE],0
+                JE      .L8
+
+                MOV     AX,3
+                INT     33H
+                TEST    BL,1
+                JNZ     .L9
+
+                TEST    BL,2
+                JNZ     .L10
+
+.L8:            TEST    [KBUFA],40H
+                JZ      .L4
+
+                XOR     AX,AX
+                XCHG    AX,WORD [KBUFS]
+                CMP     AL,0BFH         ;F5=CHOOSE SOUND
+                JNZ     .L7
+
+                CALL    [EXIT_SOUND]
+                MOVZX   BX,[SJCFG]
+                MOV     AL,BL
+                AND     AL,0FCH
+                AND     BL,3
+                INC     BX
+                CMP     BL,4
+                JNZ     .L6
+
+                XOR     BX,BX
+.L6:            OR      AL,BL
+                MOV     [SJCFG],AL
+                CALL    [SOUND_SRC+EBX*2]
+                CALL    [RESET_SOUND]
+                JMP     RELOAD_SND
+
+.L7:            CMP     AL,0C3H         ;F9=DEBUGGER
+                JNZ     .L1
+
+                CMP     [VIDCJMP],T00xxx        ;FRAME SKIP?
+                JE      .L4
+
+                MOV     [MAINJUMP],DEBUG_ENTRY
+                RETN
+
+.L1:            CMP     AL,0D7H         ;F11=RESET
+                JNZ     .L2
+
+                TEST    [KMATRIX+1],80H
+                JNZ     .L11
+
+                MOV     BX,0FF3EH       ;HARD RESET
+                CALL    MSTORE_DH
+.L11:           MOV     [MAINJUMP],RESET
+.L2:            CMP     AL,0D8H         ;F12=MENUS
+                JNZ     .L3
+
+.L9:            MOV     [MAINJUMP],MENUS_ENTRY
+.L3:            CMP     AL,0C4H         ;F10=EXIT
+                JNZ     .L4
+
+.L10:           MOV     [MAINJUMP],END_EMU
+.L4:            RETN
+

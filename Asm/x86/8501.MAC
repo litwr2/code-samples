@@ -1,0 +1,410 @@
+MACRO           ADDR_IZP NOID
+{
+                MOV     BX,[PC]
+                CALL    MREAD_DH
+                MOVZX   AX,DH
+                MOV     [TADDR],AX
+                INC     [PC]
+                MOV     [CPUOP],NOID
+                RETN
+}
+
+MACRO           ADDR_IZP3X NOID
+{
+                MOV     AL,[XR]
+                ADD     BYTE [TADDR],AL
+                MOV     [CPUOP],NOID
+                RETN
+}
+                
+MACRO           ADDR_IZP34 NOID
+{
+                MOV     BX,[TADDR]
+                CALL    MREAD_DH
+                MOV     BYTE [T2ADDR],DH
+                MOV     [CPUOP],NOID
+                RETN
+}
+                
+MACRO           ADDR_IZP45 NOID
+{
+                MOV     BX,[TADDR]
+                INC     BL
+                CALL    MREAD_DH
+                MOV     BYTE [T2ADDR+1],DH
+                MOV     [CPUOP],NOID
+                RETN
+}
+
+MACRO           ADDR_IZP5Y NOID
+{
+                MOV     AL,[YR]
+                ADD     BYTE [T2ADDR],AL
+                JNC     NOID
+
+                INC     BYTE [T2ADDR+1]
+                MOV     [CPUOP],NOID
+                RETN
+}
+
+MACRO           ADDR_IZP5 NOID
+{
+                MOVZX   AX,[YR]
+                ADD     [T2ADDR],AX
+                MOV     [CPUOP],NOID
+                RETN
+}
+
+MACRO           ADDR_IM
+{
+                MOV     BX,[PC]
+                INC     [PC]
+                CALL    MREAD_DH
+}
+
+
+MACRO           ADDR_ABS NOID
+{
+                MOV     BX,[PC]
+                INC     [PC]
+                CALL    MREAD_DH
+                MOV     BYTE [TADDR],DH
+                MOV     [CPUOP],NOID
+                RETN
+}
+
+MACRO           ADDR_ABS3 NOID
+{
+                MOV     BX,[PC]
+                INC     [PC]
+                CALL    MREAD_DH
+                MOV     BYTE [TADDR+1],DH
+                MOV     [CPUOP],NOID
+                RETN
+}
+                    
+MACRO           ADDR_ABS4I NOID,IX
+{
+                MOV     AL,[IX]
+                ADD     BYTE [TADDR],AL
+                JNC     NOID
+
+                INC     BYTE [TADDR+1]
+                MOV     [CPUOP],NOID
+                RETN
+}
+
+MACRO           ADDR_ABS4X NOID
+{
+                MOVZX   AX,[XR]
+                ADD     [TADDR],AX
+                MOV     [CPUOP],NOID
+                RETN
+}
+
+MACRO           ADDR_ABS4Y NOID
+{
+                MOVZX   AX,[YR]
+                ADD     [TADDR],AX
+                MOV     [CPUOP],NOID
+                RETN
+}
+
+MACRO           ADDR_ZP NOID
+{
+                MOV     BX,[PC]
+                INC     [PC]
+                CALL    MREAD_DH
+                MOVZX   AX,DH
+                MOV     [TADDR],AX
+                MOV     [CPUOP],NOID
+                RETN
+}
+
+MACRO           ADDR_ZPX NOID
+{
+                MOV     AL,[XR]
+                ADD     BYTE [TADDR],AL
+                MOV     [CPUOP],NOID
+                RETN
+}
+
+MACRO           ADDR_ZPY NOID
+{
+                MOV     AL,[YR]
+                ADD     BYTE [TADDR],AL
+                MOV     [CPUOP],NOID
+                RETN
+}
+
+MACRO           SETNZ
+{
+                LOCAL   L
+
+                JNZ     .L
+
+                OR      [SR],2
+.L:             JNS     IRQTST
+
+                OR      [SR],80H
+                JMP     IRQTST
+}
+
+MACRO           RMW1 NOID,T2ADDR
+{
+        IF T2ADDR EQ
+                MOV     BX,[TADDR]
+        ELSE
+                MOV     BX,[T2ADDR]
+        END IF
+                CALL    MREAD_DH
+                MOV     [TMPCPUV],DH
+                MOV     [CPUOP],NOID
+                RETN
+}
+
+MACRO           RMW2 NOID,T2ADDR
+{
+        IF T2ADDR EQ
+                MOV     BX,[TADDR]
+        ELSE
+                MOV     BX,[T2ADDR]
+        END IF
+                MOV     DH,[TMPCPUV]
+                CALL    MSTORE_DH
+                MOV     [CPUOP],NOID
+                RETN
+}
+
+MACRO           PUSH_PCH NOID
+{
+                MOV     BX,[SPR]
+                MOV     AX,[PC]
+                MOV     [FS:BX],AH
+                DEC     BYTE [SPR]
+                MOV     [CPUOP],NOID
+                RETN
+}
+
+MACRO           PUSH_PCL NOID
+{
+                MOV     BX,[SPR]
+                MOV     AX,[PC]
+                MOV     [FS:BX],AL
+                DEC     BYTE [SPR]
+                MOV     [CPUOP],NOID
+                RETN
+}
+
+MACRO           POP_PCL NOID
+{
+                MOV     BX,[SPR]
+                MOV     AL,[FS:BX]
+                MOV     BYTE [PC],AL
+                INC     BYTE [SPR]
+                MOV     [CPUOP],NOID
+                RETN
+}
+
+MACRO           LOGIC   OPER
+{
+                AND     [SR],7DH
+                OPER    [AC],DH
+                SETNZ
+}
+
+MACRO           SHIFT   OPER
+{
+                MOV     BX,[TADDR]
+                MOV     DH,[TMPCPUV]
+                AND     [SR],7CH
+                OPER    DH,1
+                ADC     [SR],0
+                CALL    MSTORE_DH
+                OR      DH,DH
+                SETNZ
+}
+
+MACRO           ROTATE  OPER
+{
+                MOV     BX,[TADDR]
+                MOV     DH,[TMPCPUV]
+                AND     [SR],7DH
+                BTR     WORD [SR],0
+                OPER    DH,1
+                ADC     [SR],0
+                CALL    MSTORE_DH
+                OR      DH,DH
+                SETNZ
+}
+
+MACRO           PM1     OPER
+{
+                MOV     BX,[TADDR]
+                MOV     DH,[TMPCPUV]
+                AND     [SR],7DH
+                OPER    DH
+                CALL    MSTORE_DH
+                OR      DH,DH
+                SETNZ
+}
+
+MACRO           COMPARE VAL
+{
+                AND     [SR],7CH
+                MOV     AL,[VAL]
+                SUB     AL,DH
+                CMC
+                ADC     [SR],0
+                OR      AL,AL
+                SETNZ
+}
+
+MACRO           ADDITION
+{
+                LOCAL   L
+
+                AND     [SR],3DH
+                TEST    [SR],8
+                JNZ     L#DECI
+
+                BTR     WORD [SR],0
+                ADC     [AC],DH
+                LAHF
+                JNO     L#12
+
+                ADC     [SR],0
+                OR      [SR],40H
+L#12:           ADC     [SR],0
+                SAHF
+                SETNZ
+
+L#DECI:         MOV     BH,[AC]
+                XOR     CH,CH
+                BT      WORD [SR],0
+                ADC     BH,DH
+                JNZ     .L#7
+
+                OR      [SR],2          ;SET ZF
+.L#7:           MOV     BL,DH
+                MOV     BH,[AC]
+                AND     BX,0F0FH
+                BTR     WORD [SR],0
+                ADC     BL,BH
+                CMP     BL,10
+                JB      .L#1
+
+                ADD     BL,6
+.L#1:           MOV     AH,[AC]
+                AND     AH,0F0H
+                ADD     AH,DH
+                ADC     CH,CH
+                AND     AH,0F0H
+                CMP     BL,10H
+                JB      .L#14
+
+                ADD     AH,10H
+                ADC     CH,CH
+.L#14:          AND     BL,0FH
+                OR      BL,AH
+                OR      AH,AH
+                JNS     .L#2
+
+                OR      [SR],80H        ;SET NF
+.L#2:           XOR     AH,[AC]
+                JNS     .L#11
+
+                XOR     DH,[AC]
+                JS      .L#11
+
+                OR      [SR],40H        ;SET OF
+.L#11:          OR      CH,CH
+                JNZ     .L#5
+
+                CMP     BL,0A0H
+                JB      .L#6
+
+                INC     CH
+.L#5:           ADD     BL,60H
+.L#6:           MOV     [AC],BL
+                OR      CH,CH
+                JZ      IRQTST
+
+                INC     [SR]            ;SET CF
+                JMP     IRQTST
+}
+
+MACRO           SUBTRACTION
+{
+                LOCAL   L
+
+                AND     [SR],3DH
+                TEST    [SR],8
+                BTR     WORD [SR],0
+                CMC
+                JNZ     .L#DECI
+
+                SBB     [AC],DH
+                CMC
+                JNO     .L#7
+
+                ADC     [SR],0
+                OR      [SR],40H
+.L#7:           ADC     [SR],0
+                ADD     [AC],0
+                SETNZ
+
+.L#DECI:        MOV     AL,[AC]
+                LAHF
+                SBB     AL,DH
+                JC      .L#3
+
+                BTS     WORD [SR],0     ;SET CF
+.L#3:           JNO     .L#1
+
+                OR      [SR],40H        ;SET OF
+.L#1:           OR      AL,AL
+                JNZ     .L#2
+
+                OR      [SR],2          ;SET ZF
+.L#2:           JNS     .L#4
+
+                OR      [SR],80H        ;SET NF
+.L#4:           MOV     CL,[AC]
+                XOR     AL,AL
+                MOV     CH,DH
+                MOV     BX,CX
+                AND     CX,0F0FH
+                AND     BX,0F0F0H
+                SUB     BL,BH
+                ADC     AL,AL
+                SAHF
+                SBB     CL,CH
+                JNS     .L#5
+
+                SUB     CL,6
+                SUB     BL,10H
+                ADC     AL,AL
+.L#5:           AND     CL,0FH
+                OR      AL,AL
+                JZ      .L#6
+
+                SUB     BL,60H
+.L#6:           OR      BL,CL
+                MOV     [AC],BL
+                JMP     IRQTST
+}
+
+MACRO           BRANCH  BCOND,JCOND
+{
+                MOV     BX,[PC]
+                INC     [PC]
+                CALL    MREAD_DH
+                MOV     [TMPCPUV],DH
+                TEST    [SR],BCOND
+                JCOND   IRQTST
+
+                MOV     [CPUOP],O10_3
+                RETN
+}
+

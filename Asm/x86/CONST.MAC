@@ -1,0 +1,5 @@
+ACIA_PRESENT    EQU     0
+IEC_PRESENT     EQU     0
+CSB_MASK        EQU     0C0H            ;0C0H - NOT PRESENT, 0 - PRESENT
+TED_FREQ        EQU     886720          ;Hz
+

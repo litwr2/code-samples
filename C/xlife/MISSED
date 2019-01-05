@@ -1,0 +1,5 @@
+The following features of Xlife v5.3/5.4 are missed at this version
+   * ! (shell invocation) command
+   * some command line parameters support
+   * pattern's form #L
+   * better code organization

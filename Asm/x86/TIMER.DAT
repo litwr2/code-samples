@@ -1,0 +1,30 @@
+SOUND_CONST     EQU     TED_FREQ/8      ;110840Hz
+TIMERV          EQU     20H             ;1193180Hz/TIMERV=FREQ OF INTR8
+S_LIM_CONST     EQU     (TED_FREQ*TIMERV+1193180/2)/1193180     ;23.85
+MENUSFACTOR     EQU     (1193180000+TED_FREQ*TIMERV/2)/TED_FREQ/TIMERV
+
+                ALIGN   4
+SYNCHRO_TICKS   DD      0
+INTR8COUNT      DW      0
+SND1POS         DW      0
+POS1SND1        DW      0
+POS2SND1        DW      702
+SND2POS         DW      0
+POS1SND2        DW      0
+POS2SND2        DW      702
+NOISE_OFFSET    DW      1
+SPEED_LIMIT     DW      S_LIM_CONST
+TICKS2TED       DW      0
+TIMER_ST        DB      0
+VOL             DB      0
+TIMER_SOUND     DB      0
+SYNCHRO_SKIP    DB      0
+TIMER_VOL       DB      '0000000000000000'      ;0
+                DB      '0100010001000100'      ;1
+                DB      '0100100100100100'      ;2
+                DB      '1001001010010010'      ;3
+                DB      '1010101010101010'      ;4
+                DB      '1101011011010110'      ;5
+                DB      '1110111011101110'      ;6
+                DB      '1111111011111110'      ;7
+                DB      '1111111111111111'      ;8

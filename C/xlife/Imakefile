@@ -1,0 +1,144 @@
+XCOMM Imakefile for xlife 6.8
+XCOMM tested with various Linuxes (Debian 7, Raspbian, Slackware 14, Mandriva 2010, 
+XCOMM   ZenWalk 6.4, OpenSUSE 12.3), OpenBSD 5.3, NetBSD 6.1, FreeBSD 9.1, Cygwin NT 5.1
+
+#ifdef CygxVersionMajor
+XLIFE		= xlife.exe
+PROGRAMS	= $(XLIFE) gen-multirules.exe lifeconv
+BINDIR		= /usr/local/bin
+#else
+XLIFE		= xlife
+PROGRAMS	= $(XLIFE) gen-multirules lifeconv
+BINDIR		= /usr/games
+#endif
+
+#define xpatsdir_root /usr/share/xlife
+
+XLIFEPATSDIR	= xpatsdir_root/patterns
+CXXOPTIONS	= -DLIFEDIR=\"$(XLIFEPATSDIR)\" -DHASHBITS=20 -DVFREQ=50 -fpermissive -D_DEFAULT_SOURCE=1
+CDEBUGFLAGS	= -O3 -std=c++11
+#CDEBUGFLAGS	= -g -std=c++11
+CXXDEBUGFLAGS	= $(CDEBUGFLAGS)
+EXTRA_LIBRARIES	= -pthread -lm -lstdc++
+DOCDIR		= /usr/share/doc/xlife/
+INSTBINFLAGS	= -m 0755
+INSTPGMFLAGS	= -s $(INSTBINFLAGS)
+INSTMANFLAGS	= -m 0444
+INSTDATFLAGS	= -m 0644
+MANDIR		= /usr/share/man/man6
+MANSUFFIX	= 6
+DEBPACKAGE	= xlife-7.0.0
+DEBPACKAGEFULL	= $(DEBPACKAGE)~beta.deb
+
+OBJS1 = cell.o\
+	clipboard.o\
+	collect.o\
+	colors.o\
+	data.o\
+	file.o\
+	file_misc.o\
+	framebuffer.o\
+	generate.o\
+	gentab.o\
+	help.o\
+	history.o\
+	isave.o\
+	key.o\
+	main.o\
+	tentative.o\
+	tile.o\
+	topology.o\
+	utils.o\
+	xwidget.o\
+	bignumber.o\
+	hashlife.o\
+
+COMMON1 = common.h defs.h
+COMMON2 = $(COMMON1) tile.h
+COMMON3 = $(COMMON2) colors.h
+COMMON4 = $(COMMON3) file.h
+
+AllTarget($(PROGRAMS) table2r.script XLIFE-HISTORY.svg)
+ComplexProgramTarget_1(xlife,$(XONLYLIB),)
+NormalProgramTarget(gen-multirules,gen-multirules.o,,,)
+InstallProgram(gen-multirules,$(BINDIR))
+InstallScript(table2r,$(BINDIR))
+LinkFile(lifeconv,$(XLIFE))
+InstallManPageAliases(xlife,$(MANDIR),lifeconv)
+
+help.h: help.text
+	sed <help.text -e '/\\[^n]/s//\\&/g' -e '/.*/s//"&",/' >help.h
+
+cell.o: cell.cpp framebuffer.h $(COMMON3)
+clipboard.o: clipboard.cpp clipboard.h $(COMMON3)
+collect.o: collect.cpp file.h $(COMMON1) colors.h
+colors.o: colors.cpp colors.h $(COMMON1)
+data.o: data.cpp $(COMMON1)
+file.o: file.cpp topology.h xwidget.h $(COMMON4)
+file_misc.o: file_misc.cpp $(COMMON2)
+framebuffer.o: framebuffer.cpp colors.h history.h $(COMMON1)
+generate.o: generate.cpp tab.h topology.h $(COMMON4)
+gentab.o: gentab.cpp $(COMMON1)
+help.o: help.cpp help.h history.h file.h $(COMMON2)
+history.o: history.h framebuffer.h $(COMMON2)
+key.o: key.cpp $(COMMON2)
+main.o: main.cpp framebuffer.h history.h patchlevel.h icon.h cursor.h clipboard.h\
+		topology.h xwidget.h $(COMMON4)
+tentative.o: tentative.cpp $(COMMON2)
+tile.o: tile.cpp framebuffer.h history.h patchlevel.h topology.h $(COMMON4)
+topology.o: topology.cpp $(COMMON3)
+utils.o: utils.cpp $(COMMON3)
+xwidget.o: xwidget.cpp xwidget.h $(COMMON4)
+isave.o: isave.cpp file.h $(COMMON2)
+bignumber.o: bignumber.cpp bignumber.h
+hashlife.o: hashlife.cpp hashlife.h bignumber.h framebuffer.h $(COMMON2)
+
+table2r.script: table2r
+	sed 1s!GAWKPATH!$(shell which gawk)! <table2r >table2r.script
+
+XLIFE-HISTORY.svg: XLIFE-HISTORY.dot
+	-dot -Tsvg -o XLIFE-HISTORY.svg XLIFE-HISTORY.dot
+
+$(DEBPACKAGEFULL): xlife gen-multirules XLIFE-HISTORY.svg
+	mkdir -p deb-bin/usr/bin
+	mkdir -p deb-bin/usr/share/man/man$(MANSUFFIX)
+	mkdir -p deb-bin/usr/share/doc/$(DEBPACKAGE)
+	cp xlife gen-multirules table2r deb-bin/usr/bin
+	strip deb-bin/usr/bin/xlife deb-bin/usr/bin/gen-multirules
+	ln deb-bin/usr/bin/xlife deb-bin/usr/bin/lifeconv
+	cp changelog copyright HACKING README SHORT-INFO XLIFE-HISTORY.svg deb-bin/usr/share/doc/$(DEBPACKAGE)
+	cp xlife.man deb-bin/usr/share/man/man$(MANSUFFIX)/xlife.6
+	cd deb-bin; ./make-debpkg-bin
+	mv deb-bin/$(DEBPACKAGEFULL) .
+	rm -rf deb-bin/usr
+
+install:: install.man install.doc install.patterns
+	rm -f $(DESTDIR)$(BINDIR)/lifeconv
+	ln $(DESTDIR)$(BINDIR)/$(XLIFE) $(DESTDIR)$(BINDIR)/lifeconv
+
+install.patterns:
+	mkdir -p -m 755 xpatsdir_root
+	cp -R patterns xpatsdir_root
+
+install.doc:
+	mkdir -p -m 755 $(DOCDIR)doc
+	cp -R doc $(DOCDIR)
+	cp XLIFE-HISTORY.* CHANGES HACKING INSTALL README MISSED SHORT-INFO\
+		changelog.debian changelog.openbsd HOW-TO-INSTALL $(DOCDIR)
+
+uninstall:
+	@(set -x;rm -rf xpatsdir_root)
+	@(set -x;rm -rf $(DOCDIR))
+#ifdef CygxVersionMajor
+	rm -f $(DESTDIR)$(MANDIR)/xlife.6 $(DESTDIR)$(MANDIR)/gen-multirules.6\
+		$(DESTDIR)$(BINDIR)/table2r $(DESTDIR)$(BINDIR)/xlife.exe\
+		$(DESTDIR)$(BINDIR)/gen-multirules.exe
+#else
+	for i in $(PROGRAMS) table2r;do\
+		rm -f $(DESTDIR)$(BINDIR)/$$i $(DESTDIR)$(MANDIR)/$$i.*; done
+#endif
+
+deb-bin: $(DEBPACKAGEFULL)
+
+clean::
+	$(RM) help.h *.svg *.script *.deb

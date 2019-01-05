@@ -1,0 +1,39 @@
+                ALIGN   4
+TOTALTICKS      DD      0
+
+FREEZE_VER      DW      1
+TICKS           DB      0
+PC              DW      0
+SPR             DW      1FFH
+XR              DB      4
+                DB      0               ;???
+YR              DB      7
+                DB      0               ;???
+SR              DB      30H
+AC              DB      0
+CPU_0           DB      0FH             ;$0-$1
+CPU_1           DB      0C8H
+ROMMAP          DB      0
+SJCFG           DB      4CH     ;former kernel_ws, sound+joysticks cfg
+TIMER1_RELOAD   DW      8000H
+LED             DB      ?       ;4 - Scroll Lock, 5 - Num Lock, 6 - Caps Lock
+
+                ALIGN   2
+RESET_SP        DW      ?
+SA_ROM_LO       DW      ?       ;ACTIVE ROM BANKS
+SA_ROM_HI       DW      ?
+TSA_ROM         DW      SEG_ROM - 800H, SEG_ROM
+                DW      SEG_CART - 800H, SEG_CART
+CPUOP           DW      FETCHBYTE1
+IRQOP           DW      ?
+TADDR           DW      ?
+T2ADDR          DW      ?
+
+LABEL           OPP     BYTE
+                IRPC2   O,0,1,2,3,4,5,6,7,8,9,A,B,C,D,E,F
+
+TMPCPUV         DB      ?
+
+FREEZE_LEN      EQU     LED - FREEZE_VER + 1
+
+

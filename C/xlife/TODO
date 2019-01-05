@@ -1,0 +1,9 @@
+  * change #0 to #O for S (save) command (?)
+  * test (COALESCE, BLOBDEBUG, LAP, DEPTH2) codes
+  * convert to GNU automake and autoconf standards (?)
+  * incorporate all v5.3/5.4 features (#L, !, structure)
+  * a confuguration file (?)
+  * script support
+  * hashlife
+  * better compatibility with dblife (cells, rle)
+  * fix L-command, make it free of screen artefacts

@@ -1,0 +1,31 @@
+CPU1_OLD        DB      0
+CPU1_XOR        DB      0
+LED_NEW         DB      0
+DS_SBUF         DB      ?               ;
+DS_LBC          DB      ?               ;
+DS_LBQ          DB      ?               ;
+                ALIGN   4
+DS_TAPSUM       DD      ?
+DS_TAPINT       DD      ?               ;time interval for ver1
+DS_TIMER        DD      ?               ;
+DS_MSUM         DD      ?               ;USED IN TAP & CTF write!
+DS_MCOUNT       DD      ?
+DS_MVAL2        DW      ?
+DS_TEMP         DW      ?               ;
+DS_BUF_PTR      DW      ?               ;
+                DW      SEG_DS
+DS_RPOSBY       DD      ?               ;POS OF BREAK
+DS_SPOS         DD      ?               ;FILE SIZE
+DS_RPOSP        DD      ?               ;BUFFER CURRENT POS (REL!)
+DS_RPOSC        DD      ?               ;BUFFER END POS (REL!)
+DS_RPOSE        DD      ?               ;END OF BLOCK (RELATIVE!)
+DS_TAPPM        DB      ?               ;POLARITY: PLUS MINUS for ver2
+DS_TAPF         DB      ?               ;FLAG: 0 - INIT, 1 - CONTINUE
+DS_FVER         DW      0               ;CURRENT FORMAT VERSION!!!
+DS_HPOSN        DW      ?               ;CURRENT TAPE HEAD POSITION NUMBER
+DS_QENTR        DW      ?               ;QUANTITY OF CURRENT TAPE ENTRIES +1
+DS_NPOS         DD      ?               ;NEXT POSITION
+DS_MVAL         DW      ?
+DS_TAP          RB      20
+DS_TAPEB        DW      ?               ;END BUFFER
+

@@ -1,0 +1,81 @@
+                DRIVED  8
+                DRIVED  9
+
+                ALIGN 2
+IECDSIDX        DW      IECDS00,IECDS01,IECDS20
+                DW      IECDS21,IECDS22,IECDS23
+                DW      IECDS24,IECDS25,IECDS26
+                DW      IECDS27,IECDS28,IECDS29
+                DW      IECDS30
+                DW      IECDS31,IECDS32,IECDS33
+                DW      IECDS34,IECDS39,IECDS50
+                DW      IECDS51,IECDS52,IECDS60
+                DW      IECDS61,IECDS62,IECDS63
+                DW      IECDS64,IECDS65,IECDS66,IECDS70,IECDS72
+                DW      IECDS73,IECDS74,IECDS75
+                DW      NOTDOSCHARS
+
+D64SECP         DW      ?       ;sector# set in SEEK_D64_POS
+IEC_CMDJMP      DW      0
+IEC_CFN         RB      16
+                DB      0,0
+IEC_CFNL        DB      0       ;CURRENT FNL
+IEC_CFN2        RB      16
+                DB      0,0
+IEC_CFN2L       DB      0
+IEC_CCH         DB      ?       ;CURRENT CHANNEL
+IEC_CFT         DB      0       ; 'SPUDAR'
+IEC_CFA         DB      0       ; 'RWX' M->R
+IEC_CRL         DB      0       ; REL FILE RECORD LENGTH
+IEC_CFRS        DB      0       ; CFN REPLACE ST (0 - NO REPLACE)
+IEC_CFMCS       DB      0       ; CFN META CHARS ST
+IEC_PRGNAME     DB      '????????.???',0
+IEC_SBUF_ST     DB      1
+
+IECDS           DB      ',00,00',0DH
+IECDS00         DB      '00, OK'
+IECDS01         DB      '01, FILES SCRATCHED'
+IECDS20         DB      '20, READ ERROR'        ;2
+IECDS21         DB      '21, READ ERROR'        ;3
+IECDS22         DB      '22, READ ERROR'        ;4
+IECDS23         DB      '23, READ ERROR'        ;5
+IECDS24         DB      '24, READ ERROR'        ;6
+IECDS25         DB      '25, WRITE ERROR'       ;7
+IECDS26         DB      '26, WRITE PROTECT ON'  ;8
+IECDS27         DB      '27, READ ERROR'        ;9
+IECDS28         DB      '28, WRITE ERROR'       ;10
+IECDS29         DB      '29, DISK ID MISMATCH'  ;11
+IECDS30         DB      '30, SYNTAX ERROR'      ;12
+IECDS31         DB      '31,SYNTAX ERROR'       ;13
+IECDS32         DB      '32, SYNTAX ERROR'      ;14
+IECDS33         DB      '33, SYNTAX ERROR'      ;15
+IECDS34         DB      '34, SYNTAX ERROR'      ;16
+IECDS39         DB      '39, SYNTAX ERROR'      ;17
+IECDS50         DB      '50, RECORD NOT PRESENT';18
+IECDS51         DB      '51, OVERFLOW IN RECORD';19
+IECDS52         DB      '52, FILE TOO LARGE'    ;20
+IECDS60         DB      '60, WRITE FILE OPEN'   ;21
+IECDS61         DB      '61, FILE NOT OPEN'     ;22
+IECDS62         DB      '62, FILE NOT FOUND'    ;23
+IECDS63         DB      '63, FILE EXISTS'       ;24
+IECDS64         DB      '64, FILE TYPE MISMATCH';25
+IECDS65         DB      '65, NO BLOCK'          ;26
+IECDS66         DB      '66,ILLEGAL TRACK OR SECTOR'  ;27
+IECDS70         DB      '70, NO CHANNEL'        ;28
+IECDS72         DB      '72, DISK FULL'         ;29
+IECDS73         DB      '73,CBM DOS V2.6 TDISK' ;30
+IECDS74         DB      '74,DRIVE NOT READY'    ;31
+IECDS75         DB      '75,CMD NOT SUPPORTED'  ;32
+
+NOTDOSCHARS     DB      '"+,./:;<=>[\]|',0
+SECERRDECODE    DB      0,2,3,4,5,6,7,8,9,10,11,0,0,0,29
+IECTEMP         DB      ?
+LABEL           INITBAM BYTE
+                FILE    'EBAM.BIN'
+
+IF IECDEBUG > 0
+XXXFN           DB      'IECDEBUG.BIN',0
+XXXFH           DW      0
+XXXBUF          RB      2
+END IF
+

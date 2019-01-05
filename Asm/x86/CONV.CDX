@@ -1,0 +1,152 @@
+HEX2DEC:        MOV     EBX,1000000000  ;IN: EAX - HEX 
+                PUSH    CX              ;OUT: ->HEX2DECBUF
+                PUSH    SI              ;USED: BX, EDX
+                XOR     EDX,EDX
+                MOV     SI,HEX2DECBUF   ;*** FAR! ***
+                DIV     EBX
+                OR      AL,30H
+                MOV     [SI],AL
+                XOR     AL,AL
+                MOV     EBX,100000000
+                XCHG    EAX,EDX
+                INC     SI
+                DIV     EBX
+                OR      AL,30H
+                MOV     [SI],AL
+                XOR     AL,AL
+                MOV     EBX,10000000
+                XCHG    EAX,EDX
+                INC     SI
+                DIV     EBX
+                OR      AL,30H
+                MOV     [SI],AL
+                XOR     AL,AL
+                MOV     EBX,1000000
+                XCHG    EAX,EDX
+                INC     SI
+                DIV     EBX
+                OR      AL,30H
+                MOV     [SI],AL
+                XOR     AL,AL
+                MOV     EBX,100000
+                XCHG    EAX,EDX
+                INC     SI
+                DIV     EBX
+                OR      AL,30H
+                MOV     [SI],AL
+                XOR     AL,AL
+                MOV     EBX,10000
+                XCHG    EAX,EDX
+                INC     SI
+                DIV     EBX
+                OR      AL,30H
+                MOV     [SI],AL
+                XOR     AL,AL
+                MOV     BX,1000
+                XCHG    AX,DX
+                INC     SI
+                DIV     BX
+                OR      AL,30H
+                MOV     [SI],AL
+                XOR     AL,AL
+                MOV     BX,100
+                XCHG    AX,DX
+                INC     SI
+                DIV     BX
+                OR      AL,30H
+                MOV     [SI],AL
+                MOV     BL,10
+                XCHG    AL,DL
+                INC     SI
+                DIV     BL
+                OR      AX,3030H
+                MOV     [SI],AX
+                SUB     SI,8
+                MOV     CX,9
+.L2:            LODSB
+                CMP     AL,30H
+                JNZ     .L1
+
+                MOV     AL,20H
+                MOV     [SI-1],AL
+                LOOP    .L2
+.L1:            POP     SI
+                POP     CX
+                RETN
+
+BIN2HEX:        MOV     AH,AL           ;AL -> DX
+                AND     AL,0FH
+                ADD     AL,30H
+                CMP     AL,3AH
+                JC      .L1
+
+                ADD     AL,7
+.L1:            MOV     DH,AL
+                MOV     AL,AH
+                SHR     AL,4
+                ADD     AL,30H
+                CMP     AL,3AH
+                JC      .L2
+
+                ADD     AL,7
+
+.L2:            MOV     DL,AL
+                RETN
+
+HEX2BIN:        SUB     DL,30H          ;DX -> AL
+                JAE     .L3
+
+.L4:            STC
+                RETN
+
+.L3:            CMP     DL,9
+                JBE     .L1
+
+                SUB     DL,7
+                CMP     DL,0AH
+                JB      .L4
+
+                CMP     DL,0FH
+                JA      .L4
+
+.L1:            MOV     AL,DL
+                SUB     DH,30H
+                JC      .L4
+
+                CMP     DH,9
+                JBE     .L2
+
+                SUB     DH,7
+                CMP     DH,0AH
+                JB      .L4
+
+                CMP     DH,0FH
+                JA      .L4
+
+.L2:            SHL     DH,4
+                OR      AL,DH
+                RETN
+
+CBM2IBMCNV:     CMP     AH,128          ;IN & OUT: AH
+                JB      .L1
+
+                SUB     AH,128
+.L1:            CMP     AH,32
+                JA      .L2
+
+                MOV     AH,'_'
+                JMP     .L5
+
+.L2:            PUSH    SI
+                MOV     SI,NOTDOSCHARS-1
+.L4:            INC     SI
+                CMP     BYTE [SI],0
+                JE      .L3
+
+                CMP     AH,[SI]
+                JNZ     .L4
+
+                MOV     AH,'_'
+.L3:            POP     SI
+.L5:            RETN
+                                     

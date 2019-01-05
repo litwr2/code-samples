@@ -1,0 +1,5 @@
+VIDIDS          DD      320+200*10000H, 400+300*10000H
+                DD      640+400*10000H, 640+480*10000H
+PARAMF          DB      0       ;1-ACTIVATED
+CFGFILE         DB      'PLUS4.CFG',0
+

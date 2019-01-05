@@ -1,0 +1,92 @@
+The lines beginning with '#' give information that doesn't match this version
+of XLife. :-(
+
+
+If you like to hack, here's what's going on in Xlife (followed by the current
+to-do list).
+
+DATA REPRESENTATION
+
+The program represents the universe as a linked list of 8 by 8 tiles.  For fast
+access by coordinate address, the tiles are also threaded onto lists depending
+from a hash table; hash coordinates to go to a bucket, chase links to find the
+tile that actally matches.  The implementation is in tile:fetchtile(); the
+relevant type descriptions are in tile.h.
+
+Actually, there are potentially multiple universes or `patterns', (see the
+`pattern' type in tile.h), each with its own hash table, tile list and
+population info.  At present, the program uses two; the active list and
+the tentative.  The active list is the state of the universe; the tentative
+list holds patterns loaded via 'l' (flippable and rotatable) which haven't
+yet been merged into the active list.  Functions which may operate on
+either take a context pointer argument.
+
+Tiles contain a union called a `cellbox' which is interpreted
+differently depending on whether the program is in 2-state, generated
+state, or N-state mode.  Exceedingly hairy code by jcrb packs all
+the 2-state info into 4 unsigned longs (16 bytes) for speed and
+compactness. The n-state and the generated state member uses a simple
+8x8 array (64 bytes).
+
+The tile size is variable.  Which member of the cellbox union we use
+to compute the tile allocation size for malloc() depends on how much
+internal state each cell carries (major cases are two-state, generate
+state, and n-state).  Thus, we can add more union members to the cellbox
+type without worrying that all simulations will incur higher memory costs.
+
+Each cellbox stores the tile state for both this and the previous
+generation.  This is so X can be told to display only *changed* cells.
+It is possible also to show new and removed cells in different colors.
+The multicolor mode sets to show in one color the cells of the same
+generation.
+
+ORGANIZATION
+
+The code has been (re)organized so we could re-implement the front end
+and display logic within a toolkit such as Xt or KDE.  All knowledge of
+# X is concentrated in xcanvas.c and main.c.  The xcanvas code encapsulates
+# scribbling cell patterns on an X canvas.  All other I/O (including the
+# main event-processing loop) lives in main.c.
+
+The evolution function and rule-definition helpers live in generate.c.
+The cell.c, tile.c, and pattern.c modules provide data structure handling.
+# All this is carefully separated from the GUI code.
+
+Xlife's code is mostly pretty straightforward (all Xlib; no widgets).  There
+are three interesting patches of hair:
+
+1) jcrb's Life evolution code, mentioned above.  Bit-banging gone berserk.
+   This is optimized for space, using only one bit per cell rather than the
+   minimum of 8 a more conventional array representation would require.
+
+2) esr's parser for n-state evolution rules --- uses a twisty recursion to
+   implement wildcarding.
+
+3) callahan's load queue request and intelligent-inclusion stuff in file.c.
+   The idea here is to be able to queue up inclusion requests into a load
+   script for later saving.
+
+WHY THIS IS NOT A BITMAP EDITOR
+
+Yes, you can use it as one, providing you can use the idisyncratic save file
+format.  But it isn't really one.  The data representation is tuned for very
+large but sparse `pictures', and (at present) it only handles up to 16 colors.
+
+ETIQUETTE TIP FOR HACKERS
+
+#The program now uses a uniform indent style, what EMACS calls C++ mode, instead
+#of the three different modes that were mixed in it before, making it harder to
+#read.  Please try to stick with this style as you hack.  If you absolutely
+#can't stand it, use GNU indent to bash the whole thing into your preferred
+#style.
+
+THINGS THAT STILL NEED DOING
+
+The `u' command ought to undo generate steps.  Easiest way to do this is
+probably to clone the tentative boxlist on a `G' command and restore it
+on `u'.
+
+Read different file formats (bitmap....) as new #-section types
+
+lifeconv should really be made more 'useful' and convert from other formats
+(pbm, x bitmap, etc).

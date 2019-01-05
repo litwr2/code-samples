@@ -1,0 +1,38 @@
+		XLIFE -- a cellular-automaton laboratory
+
+    This program will evolve patterns for John Horton Conway's game of Life.
+It will also handle general cellular automata with the orthogonal and
+nosymmetry neighborhood and up to 16 states (it's possible to recompile for
+more states, but very expensive in memory).  Transition rules and sample
+patterns are provided for the 8-state automaton of E. F. Codd, the Wireworld
+automaton, and a whole class of `Prisoner's Dilemma' games, and many others.
+
+    See the file HOW-TO-INSTALL for installation instructions.
+
+    To use it, run `xlife'.  The help key is `?'.  There is a man page.
+
+    The pattern library lives in the subdirectory `patterns'.  The
+sub-subdirectory `life' contains an extensive library of interesting
+Life patterns.  The sub-subdirectory `codd' contains transition rules
+and components for the universal computer-constructor described in E.F
+Codd's "Cellular Automata" Academic Press 1968 (ACM Monograph #3). The
+sub-subdirectory `wireworld' contains patterns for the `Wireworld'
+automaton described in the January 1990 issue of Scientific American
+(Computer Recreations, p. 146).
+
+    Some documents on advanced pattern creation and UCC components are in
+the directory doc.
+
+    We also include a couple of utilities:
+
+    The `lifeconv' utility converts between different pattern file formats.
+There is a man page. It may also collects separate included files into one
+file that uses pattern blocks.
+
+			Jon
+			Dan
+			Chuck
+			Paul
+ 			Eric
+ 			Litwr
+			Yaroslav

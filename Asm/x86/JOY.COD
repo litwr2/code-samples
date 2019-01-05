@@ -1,0 +1,138 @@
+GET_JOYS:       CMP     [JOY1_ST],2
+                JZ      .L100
+
+                CMP     [JOY1_ST],3
+                JZ      .L100
+
+                CMP     [JOY2_ST],2
+                JZ      .L100
+
+                CMP     [JOY2_ST],3
+                JZ      .L100
+
+                RETN
+
+.L100:          MOV     DX,201H         ;JOYSTICKS!
+                OUT     DX,AL
+                MOV     BX,0FFFFH
+                IN      AL,DX
+                MOV     CL,AL
+                AND     AL,30H
+                CMP     AL,30H          ;FIRE AT JOY1
+                JZ      .L16
+
+                AND     BL,0BFH
+.L16:           MOV     AL,CL
+                AND     AL,0C0H
+                CMP     AL,0C0H         ;FIRE AT JOY2
+                JZ      .L17
+
+                AND     BH,7FH
+.L17:           XOR     CX,CX
+
+                XOR     AH,AH
+                OR      AH,[JOY_ST]
+                JZ      .L15
+
+.L9:            IN      AL,DX
+                AND     AL,AH
+                INC     CX
+                JS      .L15
+
+                XOR     AL,AH
+                JZ      .L9
+
+                TEST    AL,1
+                JZ      .L10
+
+                CMP     CX,[JOY1X_LB]
+                JA      .L1
+
+                AND     BL,0FBH         ;J1 LEFT
+                JMP     .L2
+
+.L1:            CMP     CX,[JOY1X_RB]
+                JB      .L2
+
+                AND     BL,0F7H         ;J1 RIGHT
+.L2:            AND     AH,0EH
+
+.L10:           TEST    AL,2
+                JZ      .L11
+
+                CMP     CX,[JOY1Y_LB]
+                JA      .L3
+
+                AND     BL,0FEH         ;J1 UP
+                JMP     .L4
+
+.L3:            CMP     CX,[JOY1Y_RB]
+                JB      .L4
+
+                AND     BL,0FDH         ;J1 DOWN
+.L4:            AND     AH,0DH
+.L11:           TEST    AL,4
+                JZ      .L12
+
+                CMP     CX,[JOY2X_LB]
+                JA      .L5
+
+                AND     BH,0FBH         ;J2 LEFT
+                JMP     .L6
+
+.L5:            CMP     CX,[JOY2X_RB]
+                JB      .L6
+
+                AND     BH,0F7H         ;J2 RIGHT
+.L6:            AND     AH,0BH
+.L12:           TEST    AL,8
+                JZ      .L14
+
+                CMP     CX,[JOY2Y_LB]
+                JA      .L7
+
+                AND     BH,0FEH         ;J2 UP
+                JMP     .L8
+
+.L7:            CMP     CX,[JOY2Y_RB]
+                JB      .L8
+
+                AND     BH,0FDH         ;J2 DOWN
+.L8:            AND     AH,07H
+.L14:           ADD     CX,12
+                OR      AH,AH
+                JNZ     .L9
+
+.L15:           CMP     [JOY1_ST],2
+                JNZ     .L18
+
+                MOV     BYTE [JOY_MASK],BL
+                JMP     .L19
+
+.L18:           CMP     [JOY1_ST],3
+                JNZ     .L19
+
+                MOV     DL,BH
+                CALL    I9_JSB_COPY
+                MOV     BYTE [JOY_MASK],DL
+.L19:           CMP     [JOY2_ST],2
+                JNZ     .L20
+
+                MOV     DL,BL
+                CALL    I9_JSB_COPY
+                MOV     BYTE [JOY_MASK+1],DL
+                RETN
+
+.L20:           CMP     [JOY2_ST],3
+                JNZ     .L21
+
+                MOV     BYTE [JOY_MASK+1],BH
+.L21:           RETN
+
+I9_JSB_COPY:    XOR     DL,0C0H
+                TEST    DL,0C0H
+                JNZ     .L1
+
+                XOR     DL,0C0H
+.L1:            RETN
+

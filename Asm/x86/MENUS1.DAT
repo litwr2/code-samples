@@ -1,0 +1,87 @@
+SCR1_TOP_X      EQU     7
+SCR1_TOP_Y      EQU     0
+SCR1_LEN        EQU     53
+HELP1_TOP_X     EQU     2
+HELP1_TOP_Y     EQU     1
+HELP1_LEN       EQU     59
+                         ;12-123456789012-1234567890-123456789012345678901234
+SCR1_1          DB      'ษออัออออออออออออัออออออออออัออออออออออออออออออออออออป'
+SCR1_2          DB      'บD#ณ  FileName  ณ   Size   ณ    CBM Information     บ'
+SCR1_3          DB      'ศออฯออออออออออออฯออออออออออฯออออออออออออออออออออออออผ'
+BMENU1_T        DB      '1Help   2SaveBs 3Joys   4Freeze 5New    6Config '
+                DB      '7Assoc. 8Delete 9CBM 1  10Quit  '
+LABEL           BMENU_A BYTE
+TIMES   9       DB      7,70H,70H,70H,70H,70H,70H,7
+                DB      7,7,70H,70H,70H,70H,70H,70H
+                ;         1         2         3         4         5
+                ;12345678901234567890123456789012345678901234567890123456789
+MHELP1  DB      '"F1" invokes this text.                                    '
+        DB      '"F2" ("Save Basic") saves a standard program (it starts at '
+        DB      '     at the pointer at $2B and ends at the pointer at $2D) '
+        DB      '     in a PRG file.                                        '
+        DB      '"F3" sets joysticks.                                       '
+        DB      '"F4" freezes the current machine state in a C2F file.      '
+        DB      '"F5" creates a new media: cassette or disk.                '
+        DB      '"F6" sets hardware (video, sound, ...).                    '
+        DB      '"F7" associates the selected image file(s) (e.g. D64) with '
+        DB      '     a CBM i/o device.                                     '
+        DB      '"F8", "Del" deletes selected file.                         '
+        DB      '"F9" toggles between CBM Characters Set #1 and #2.         '
+        DB      '"F10", "Esc" or right mouse button returns control to the  '
+        DB      '     emulator.                                             '
+        DB      '"<", ">" sets emulator speed limit.                        '
+        DB      '"Enter" shows an image or loads a program.                 '
+        DB      'Left mouse button activates menu item.                     '
+DVTR            DB      '*89'
+CP_IN_WIN1      DB      0
+CP_MAX_WIN1     DB      21
+DIRECTION       DB      0       ;0-IN, 1-OUT
+WIN_POS1        DW      0
+LIST_CAP1       DW      0
+START_POS1      DW      0       ;temp for sort
+DIROVERST       DB      0       ;DIRECTORY OVERFLOW? 0 - NO
+FPATH_LEN       DB      0
+FPATH           RB      67
+SAVED_FPATH     RB      67
+DEV4SCR         DB      '8'
+DEVDPATH        EQU     FPATH
+DEV1PATH        DB      0
+                RB      66
+DEV8PATH        DB      0
+                RB      66
+DEV9PATH        DB      0
+                RB      66
+DEV1FNP         DW      DEV1PATH        ;POINTER
+DEV8FNP         DW      DEV8PATH        ;POINTER
+DEV9FNP         DW      DEV9PATH        ;POINTER
+DEVDFNP         EQU     START_POS1      ;DUMMY
+DEV1FH          DW      ?
+DEV8FH          DW      ?
+DEV9FH          DW      ?
+DEV1SZ          DD      ?
+DEV1FMT         DB      ?       ;C,T
+DEV8ES          RB      683     ;SECTORS MAP
+DEV8WP          DB      ?       ;DISK WRITE PROTECTION
+DEV9ES          RB      683     ;SECTORS MAP
+DEV9WP          DB      ?       ;DISK WRITE PROTECTION
+DEV1WP          DB      ?       ;TAPE WRITE PROTECTION
+TEST_DRV        DB      'A:'
+IBM_MASK        DB      '*.???',0
+IBM_EXTS_CAP    EQU     10
+IBM_EXTS        DD      'C2F','CTF','D64','PRG','P0?','S0?','U0?','R0?','D0?'
+                DD      'TAP'
+EXTS_DET        DB      0,0,0,0,1,1,1,1,1,0
+TT2             DW      ENT_C2F,ENT_CTF,ENT_D64,ENT_PRG,ENT_P00,MENU_DISP1
+                DW      MENU_DISP1,MENU_DISP1,MENU_DISP1,MENU_DISP1
+TT4             DW      FC_XX,FC_XX,FC_D64,FC_PRG,FC_X00,FC_X00,FC_X00
+                DW      FC_X00,FC_X00,FC_XX
+IBM_FLIST_CAP   EQU     416
+IBM_FN_LIST     RB      8*IBM_FLIST_CAP
+IBM_EX_LIST     RB      3*IBM_FLIST_CAP
+IBM_DV_LIST     RB      2*IBM_FLIST_CAP
+IBM_CI_LIST     RB      24*IBM_FLIST_CAP
+IBM_SZ_LIST     RD      IBM_FLIST_CAP
+RSPEED          DB      'SPEED   000.0%'
+SPEEDL          DB      'LIMIT < 100.0%>'
+IOBUF           RB      1024
+

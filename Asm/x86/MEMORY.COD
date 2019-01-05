@@ -1,0 +1,825 @@
+SET_MDATA_SEG:  PUSH    AX
+                TEST    [TED_12],4
+                MOV     AX,FS
+                JZ      .L1
+
+                MOV     AX,[SA_ROM_HI]
+                TEST    [MDATA_OFFSET],40H
+                JNZ     .L1
+
+                MOV     AX,[SA_ROM_LO]
+.L1:            MOV     [MDATA_SEG],AX
+                POP     AX
+                RETN
+
+MSTORE_DH:      CMP     [WATCHPOINT_FLAG],0
+                JE      .L1W
+
+                PUSH    CX
+                XCHG    AX,BX
+                MOV     CX,WORD [D_BUF1]
+                JCXZ    .L1C
+
+                PUSH    ES
+                PUSH    DS
+                POP     ES
+                PUSH    DI
+                MOV     DI,D_BUF1+2     ;$$$
+                REPNZ   SCASW
+                JNZ     .L1D
+
+                DEC     [WATCHPOINT_FLAG]
+.L1D:           POP     DI
+                POP     ES
+.L1C:           XCHG    AX,BX
+                POP     CX
+.L1W:           CMP     BX,1
+                JA      .L1
+
+                JZ      .L1A
+
+                MOV     [CPU_0],DH
+                RETN
+
+.L1A:           PUSH    DX              ;test: have CPU1 value changed?
+                PUSH    AX              ;yes - goto CPU_IO_WR,
+                MOV     AL,[CPU_1]      ;no - nothing to do
+                XOR     DH,AL           ;
+                AND     DH,[CPU_0]      ;
+                XOR     [CPU_1],DH      ;
+                MOV     [CPU1_OLD],AL   ;
+                XOR     AL,[CPU_1]      ;
+                MOV     [CPU1_XOR],AL   ;
+                POP     AX              ;
+                POP     DX              ;
+                JNZ     CPU_IO_WR       ;
+
+.LP:            RETN
+
+.L1:            CMP     BH,0FDH
+                JB      .LM
+
+                JNZ     .L4
+
+                CMP     BL,0FH
+                JA      .L5
+
+;                PUSH    BX              ;ACIA
+;                AND     BX,3
+;                MOV     [ACIA_0+BX],DH
+;                POP     BX
+                RETN
+
+
+.L5:            CMP     BL,1FH
+                JA      .L6
+
+                MOV     [PIO],DH          ;PIO
+                RETN
+
+.L6:            CMP     BL,2FH
+                JA      .L7
+
+                RETN
+
+.L7:            CMP     BL,3FH
+                JA      .L8
+
+                MOV     [KBD],DH        ;KBD
+                RETN
+
+.L8:            CMP     BL,0D0H
+                JB      .LP
+
+                CMP     BL,0DFH
+                JA      .LP
+
+                PUSH    BX              ;ROMBANK
+                PUSH    AX
+                AND     BX,0FH
+                PUSH    BX
+                MOV     [ROMMAP],BL
+                AND     BL,3
+                SHL     BX,1
+                MOV     AX,[TSA_ROM+BX]
+                POP     BX
+                MOV     [SA_ROM_LO],AX
+                SHR     BX,1
+                AND     BL,6
+                MOV     AX,[TSA_ROM+BX]
+                MOV     [SA_ROM_HI],AX
+                POP     AX
+                POP     BX
+                JMP     SET_MDATA_SEG
+
+.L4:            OR      BH,BH
+                JPO     .L9
+
+                CMP     BL,1FH
+                JA      .L10
+
+                CMP     BL,5            ;TED
+                JA      .L8A
+
+                CMP     BL,1
+                JA      .L4A
+
+                MOV     BYTE [TIMER1_RELOAD+BX+100H],DH
+                JMP     .L11
+
+.L4A:           TEST    BL,1
+                JNZ     .L11
+
+;                PUSH    DX
+;                ADD     DH,8
+;                MOV     [TED_0+BX+100H],DH
+;                ADC     [TED_0+BX+101H],0
+;                POP     DX
+;                RETN
+                JMP     .L11
+
+.L8A:           CMP     BL,6
+                JNZ     .L8D
+
+                PUSH    AX
+                MOV     AL,DH
+                AND     AL,7
+                MOV     BYTE [Y_OFFSET],AL
+
+                MOV     [EVSA],204
+                MOV     [SVSA],4
+                TEST    DH,8                    ;24 ROWS? (0-24, 1-25)
+                JNZ     .L8B
+
+                MOV     [SVSA],8
+                MOV     [EVSA],200
+.L8B:           MOV     AL,[TED_13]
+                AND     AL,0FCH
+                TEST    [TED_7],80H     ;HRM?
+                JNZ     .L6C1
+
+                TEST    DH,40H          ;ECM?
+                JZ      .L6A1
+
+.L6C1:          AND     AL,0F8H
+.L6A1:          MOV     [CG_BASE],AL
+                TEST    DH,20H                  ;BMM? (0-TEXT, 1-BMM)
+                JZ      .L8H
+
+                MOV     AL,[TED_12]
+                AND     AL,38H
+                SHL     AL,2
+
+.L8H:           MOV     [MDATA_OFFSET],AL
+                MOV     AL,DH
+                AND     AL,60H
+                AND     BYTE [VMODE],0F9H
+                SHR     AL,4
+                OR      BYTE [VMODE],AL
+
+                POP     AX
+                MOV     [TED_6],DH
+                JMP     SET_MDATA_SEG
+
+.L8D:           CMP     BL,7
+                JNZ     .L8N
+
+                PUSH    AX
+                MOV     AL,DH
+                AND     AL,7
+                MOV     BYTE [X_OFFSET],AL
+                POP     AX
+
+                MOV     [EHSA],39
+                MOV     [SHSA],56
+                TEST    DH,8                    ;38 COLUMNS? (0-38, 1-40)
+                JNZ     .L8E
+
+                MOV     [SHSA],0
+                DEC     [EHSA]
+.L8E:           AND     BYTE [VMODE],0E7H
+                MOV     [TED_7],DH
+                OR      DH,DH           ;HRM? (1-HARDWARE REVERSE OFF)
+                MOV     DH,[TED_13]
+                JS      .L8K
+
+                TEST    [TED_6],40H     ;ECM? (1-ECM ON)
+                JZ      .L8F
+
+                JMP     .L8L
+
+.L8K:           OR      BYTE [VMODE],10H
+.L8L:           AND     DH,0F8H
+.L8F:           AND     DH,0FCH
+                MOV     [CG_BASE],DH
+                TEST    [TED_6],20H     ;BMM? (0-TEXT, 1-BMM)
+                JNZ     .L8I
+
+                MOV     [MDATA_OFFSET],DH
+.L8I:           MOV     DH,[TED_7]
+                
+                TEST    DH,10H          ;MCM? (0-NORMAL, 1-MCM)
+                JZ      .L8J
+
+                OR      BYTE [VMODE],8
+.L8J:           RETN
+
+.L8N:           CMP     BL,8
+                JNZ     .L1N
+
+                PUSH    AX
+                PUSH    BX
+
+                MOV     AL,[KBD]
+                XOR     BX,BX
+                MOV     AH,0FFH
+.L3:            SHR     AL,1
+                JC      .L2C
+
+                AND     AH,[KMATRIX+BX]
+.L2C:           INC     BX
+                CMP     BL,8
+                JNZ     .L3
+
+                MOV     BX,[JOY_MASK]
+                TEST    DH,6
+                JNZ     .L2B
+
+                MOV     AL,BH
+                AND     AL,BL
+                JMP     .L2A
+
+.L2B:           TEST    DH,2
+                JNZ     .L2D
+
+                MOV     AL,BH
+                JMP     .L2A
+
+.L2D:           TEST    DH,4
+                JNZ     .L2E
+
+                MOV     AL,BL
+                JMP     .L2A
+
+.L2E:           MOV     AL,0FFH
+.L2A:           AND     AH,AL
+                MOV     [TED_8],AH
+                POP     BX
+                POP     AX
+                RETN
+
+.L1N:           CMP     BL,9
+                JNZ     .L4N
+
+                PUSH    DX
+                NOT     DH
+                AND     DH,7FH
+                AND     [TED_9],DH
+                POP     DX
+                RETN
+
+.L4N:           CMP     BL,0AH
+                JNZ     .LT0B
+
+                MOV     BYTE [FASTTEDB+1],DH
+                AND     BYTE [FASTTEDB+1],1
+                MOV     [TED_A],DH
+                AND     DH,5AH
+                AND     [TED_9],7FH
+                AND     DH,[TED_9]
+                JZ      .L4N1
+
+                OR      [TED_9],80H
+.L4N1:          MOV     DH,[TED_A]
+                RETN
+
+.LT0B:          CMP     BL,0BH
+                JNZ     .LT0C
+
+                MOV     BYTE [FASTTEDB],DH
+                MOV     [TED_B],DH
+                RETN
+
+.LT0C:          CMP     BL,0CH
+                JNZ     .LT0D
+
+                MOV     [TED_D],DH
+                AND     [TED_D],3
+                RETN
+
+.LT0D:          CMP     BL,0DH
+                JNZ     .L5N
+
+                MOV     [TED_C],DH
+                RETN
+
+.L5N:           CMP     BL,0EH
+                JNZ     .L9A
+
+                MOV     [TED_E],DH
+                JMP     [SOUND_0E]
+
+.L9A:           CMP     BL,0FH
+                JNZ     .L10A
+
+                MOV     [TED_F],DH
+                JMP     [SOUND_0F]
+
+.L10A:          CMP     BL,10H
+                JNZ     .L11N
+
+                MOV     [TED_10],DH
+                JMP     [SOUND_10]
+
+.L11N:          CMP     BL,11H
+                JNZ     .L12N
+
+                MOV     [TED_11],DH
+                JMP     [SOUND_11]
+
+.L12N:          CMP     BL,12H
+                JNZ     .L6N
+
+                MOV     [TED_12],DH
+                TEST    [TED_6],20H     ;BMM?
+                JZ      .L12A
+
+                AND     DH,38H
+                SHL     DH,2
+                MOV     [MDATA_OFFSET],DH
+                MOV     DH,[TED_12]
+.L12A:          CALL    SET_MDATA_SEG
+                JMP     [SOUND_12]
+
+.L6N:           CMP     BL,13H
+                JNZ     .L7A
+
+                PUSH    DX
+                AND     DH,0FEH
+                AND     [TED_13],1
+                OR      [TED_13],DH
+                TEST    [TED_7],80H     ;HRM?
+                JNZ     .L6C
+
+                TEST    [TED_6],40H     ;ECM?
+                JZ      .L6A
+
+.L6C:           AND     DH,0F8H
+.L6A:           AND     DH,0FCH
+                MOV     [CG_BASE],DH
+                TEST    [TED_6],20H     ;BMM?
+                JNZ     .L6B
+
+                MOV     [MDATA_OFFSET],DH
+.L6B:           POP     DX
+                JMP     SET_MDATA_SEG
+
+.L7A:           CMP     BL,14H
+                JNZ     .L11A3
+
+                PUSH    DX
+                MOV     [TED_14],DH
+                AND     DH,0F8H
+                MOV     [VM_BASE],DH
+                POP     DX
+                RETN
+
+.L11A3:         CMP     BL,15H
+                JNZ     .L11A5
+
+                MOV     BYTE [COLOR0],DH
+                MOV     BYTE [COLOR0+1],DH
+                MOV     BYTE [COLOR0+2],DH
+                MOV     BYTE [COLOR0+3],DH
+                JMP     .L11
+
+.L11A5:         CMP     BL,16H
+                JNZ     .L11A6
+
+                MOV     BYTE [COLOR1],DH
+                MOV     BYTE [COLOR1+1],DH
+                JMP     .L11
+
+.L11A6:         CMP     BL,17H
+                JNZ     .L11A4
+
+                MOV     BYTE [COLOR2],DH
+                MOV     BYTE [COLOR2+1],DH
+                JMP     .L11
+
+.L11A4:         CMP     BL,19H
+                JNZ     .L11A1
+
+                MOV     BYTE [BORDER_COLOR],DH
+                MOV     BYTE [BORDER_COLOR+1],DH
+                MOV     BYTE [BORDER_COLOR+2],DH
+                MOV     BYTE [BORDER_COLOR+3],DH
+                JMP     .L11
+
+.L11A1:         CMP     BL,1AH
+                JNZ     .L11A2
+
+                MOV     [TED_1B],DH
+                AND     [TED_1B],3
+                RETN
+
+.L11A2:         CMP     BL,1BH
+                JNZ     .L11A
+
+                MOV     [TED_1A],DH
+                RETN
+
+.L11A:          CMP     BL,1CH
+                JNZ     .L11B
+
+                MOV     [TED_1D],DH
+                AND     [TED_1D],1
+                RETN
+
+.L11B:          CMP     BL,1DH
+                JNZ     .L11C
+
+                MOV     [TED_1C],DH
+                RETN
+
+.L11C:          CMP     BL,1EH
+                JNZ     .L11D
+
+                PUSH    AX
+                MOV     AL,DH
+                NOT     AL
+		SHR	AL,1
+                MOV	AH,[TED_1E]
+		AND	AX,1FEH
+                OR      AL,AH
+                CMP     AL,39H*2	;???
+                JB      .L11E
+
+                XOR     AX,AX
+.L11E:          MOV     [TED_1E],AL
+                POP     AX
+                RETN
+
+.L11D:          CMP     BL,1FH
+                JNZ     .L11
+
+                PUSH    AX
+                MOV     AL,DH
+
+                AND     AL,7
+                MOV     [VSA],AL
+                MOV     AL,DH
+                AND     AL,78H
+                SHR     AL,3
+
+                OR      AL,0F0H
+                MOV     [BLINK_COUNT],AL
+                POP     AX
+
+.L11:           MOV     [TED_0+BX+100H],DH
+                RETN
+
+.L10:           CMP     BL,3EH
+                JNZ     .L14
+
+                OR      [TED_13],1      ;ROM_SELECT
+                RETN
+
+.L14:           CMP     BL,3FH
+                JNZ     .LM
+
+                AND     [TED_13],0FEH   ;RAM_SELECT
+                RETN
+
+.L9:            CMP     BL,0C0H         ;IEC?
+                JB      .LP
+
+                CMP     BL,0E0H
+                JAE     .L15
+
+                PUSHA                   ;IEC9
+                AND     BX,7
+                CMP     BL,5
+                JA      .L1I9
+
+                CMP     BL,2
+                JA      .L2I9
+
+                MOV     AL,[IEC9_0+BX]  ;mask(inp+dat)+dat -> dat
+                MOV     AH,AL           ;SAVES OLD
+                XOR     AL,DH
+                AND     AL,[IEC9_0+BX+3]
+                XOR     [IEC9_0+BX],AL
+                OR      BX,BX
+                JNZ     .L3I9
+
+                MOV     [IEC9_0PREV],AH
+                AND     [IEC9_1],0FCH
+                JMP     .L1I9
+
+.L3I9:          CMP     BL,2
+                JNZ     .L1I9
+
+                MOV     AL,AH
+                XOR     AL,[IEC9_2]
+                TEST    AL,40H
+                JZ      .L1I9
+
+                TEST    AH,40H
+                JZ      .L4I9
+
+                OR      [IEC9_2],80H    ;SET ACK HIGH
+                CMP     [IEC9ST],0
+                MOV     [IEC9ST],0
+                JNE     .L1I9
+
+                CALL    SEG_CODEX:IEC9JMP_I
+        IF IECDEBUG > 0
+                MOV AL,[IEC9_0PREV]
+                ADD AL,10H
+                MOV AH,[IEC9_0]
+                MOV WORD [XXXBUF],AX
+                ;CMP AX,5f81h
+                ;JNZ .LXXX9
+
+                ;MOV [MAINJUMP],DEBUG_ENTRY
+;.LXXX9:
+                MOV AH,40H
+                MOV BX,[XXXFH]
+                MOV CX,2
+                MOV DX,XXXBUF
+                INT 21H
+        END IF
+                JMP     .L1I9
+
+.L4I9:          AND     [IEC9_2],7FH
+                JMP     .L1I9
+
+.L2I9:          MOV     [IEC9_0+BX],DH
+.L1I9:          POPA
+                RETN
+
+.L15:           PUSHA                   ;IEC8
+                AND     BX,7
+                CMP     BL,5
+                JA      .L1I8
+
+                CMP     BL,2
+                JA      .L2I8
+
+                MOV     AL,[IEC8_0+BX]  ;mask(inp+dat)+dat -> dat
+                MOV     AH,AL           ;SAVES OLD
+                XOR     AL,DH
+                AND     AL,[IEC8_0+BX+3]
+                XOR     [IEC8_0+BX],AL
+                OR      BX,BX
+                JNZ     .L3I8
+
+                MOV     [IEC8_0PREV],AH
+                AND     [IEC8_1],0FCH
+                JMP     .L1I8
+
+.L3I8:          CMP     BL,2
+                JNZ     .L1I8
+
+                MOV     AL,AH
+                XOR     AL,[IEC8_2]
+                TEST    AL,40H
+                JZ      .L1I8
+
+                TEST    AH,40H
+                JZ      .L4I8
+
+                OR      [IEC8_2],80H    ;SET ACK HIGH
+                CMP     [IEC8ST],0
+                MOV     [IEC8ST],0
+                JNE     .L1I8
+
+                CALL    SEG_CODEX:IEC8JMP_I
+        IF IECDEBUG > 0
+                MOV AL,[IEC8_0PREV]
+                MOV AH,[IEC8_0]
+                MOV WORD [XXXBUF],AX
+                ;CMP AX,5f81h
+                ;JNZ .LXXX8
+
+                ;MOV [MAINJUMP],DEBUG_ENTRY
+;.LXXX8:
+                MOV AH,40H
+                MOV BX,[XXXFH]
+                MOV CX,2
+                MOV DX,XXXBUF
+                INT 21H
+        END IF
+                JMP     .L1I8
+
+.L4I8:          AND     [IEC8_2],7FH
+                JMP     .L1I8
+
+.L2I8:          MOV     [IEC8_0+BX],DH
+.L1I8:          POPA
+                RETN
+
+.LM:            MOV     [FS:BX],DH
+                RETN
+
+MREAD_DH:       CMP     BX,1
+                JA      .L1
+
+                JZ      CPU_IO_RD
+
+                MOV     DH,[CPU_0]
+                AND     DH,0DFH
+                RETN
+
+.L1:            CMP     BH,0FDH
+                JB      .LM
+
+                JNZ     .L4
+
+                CMP     BL,0FH
+                JA      .L5
+
+;                PUSH    BX              ;ACIA
+;                AND     BX,3
+;                MOV     DH,[ACIA_0+BX]
+;                POP     BX
+;                RETN
+.LP:            MOV     DH,0FFH         ;READ FROM UNUSED ADDRESSES
+                RETN
+
+.L5:            CMP     BL,1FH
+                JA      .L6
+
+                MOV     DH,10H          ;PIO
+                AND     DH,[LED]
+                SHR     DH,2
+                NOT     DH
+                AND     DH,[PIO]
+                RETN
+
+.L6:            CMP     BL,30H
+                JB      .LP
+
+                CMP     BL,3FH
+                JA      .LP
+
+                MOV     DH,[KBD]        ;KBD
+                RETN
+
+.L4:            OR      BH,BH
+                JPO     .L9
+
+                CMP     BL,1FH
+                JA      .LM1
+
+                CMP     BL,9
+                JNZ     .L70
+
+                MOV     DH,[TED_9]
+                OR      DH,25H
+                RETN
+
+.L70:           CMP     BL,0AH
+                JNZ     .L71
+
+                MOV     DH,[TED_A]
+                OR      DH,0A0H
+                RETN
+
+.L71:           CMP     BL,0CH          ;TED
+                JNZ     .L3
+
+                MOV     DH,[TED_D]
+                OR      DH,0FCH
+                RETN
+
+.L3:            CMP     BL,0DH
+                JNZ     .L4A
+
+                MOV     DH,[TED_C]
+                RETN
+
+.L4A:           CMP     BL,12H
+                JNZ     .L4R
+
+                MOV     DH,[TED_12]
+                OR      DH,0C0H
+                RETN
+
+.L4R:           CMP     BL,14H
+                JB      .L2C
+
+                JNZ     .L4Q
+
+                MOV     DH,[TED_14]
+                OR      DH,7
+                RETN
+
+.L4Q1:          MOV     DH,[TED_0+BX+100H]
+                OR      DH,80H
+                RETN
+
+.L4Q:           CMP     BL,1AH
+                JB      .L4Q1
+
+                JNZ     .L4B
+
+                MOV     DH,[TED_1B]
+                OR      DH,0FCH
+                RETN
+
+.L4B:           CMP     BL,1BH
+                JNZ     .L4N
+
+                MOV     DH,[TED_1A]
+                RETN
+
+.L4N:           CMP     BL,1CH
+                JNZ     .L1A
+
+                MOV     DH,[TED_1D]
+                OR      DH,0FEH
+                RETN
+
+.L1A:           CMP     BL,1DH
+                JNZ     .L1N
+
+                MOV     DH,[TED_1C]
+                RETN
+
+.L1N:           CMP     BL,1EH
+                JNZ     .L2A
+
+                MOV     DH,[TED_1E]
+                SHL     DH,1
+                RETN
+
+.L2A:           CMP     BL,1FH
+                JNZ     .L2C
+
+                PUSH    AX
+                MOV     AL,[VSA]
+                MOV     DH,[BLINK_COUNT]
+                AND     DH,0FH
+                SHL     DH,3
+                OR      DH,AL
+                OR      DH,80H
+                POP     AX
+                RETN
+
+.L2C:           MOV     DH,[TED_0+BX+100H]
+                RETN
+
+.L9:            CMP     BL,0C0H         ;IEC?
+                JB      .LP
+
+                CMP     BL,0E0H
+                JAE     .L15
+
+                PUSH    BX              ;IEC9
+                AND     BX,7
+                CMP     BL,5
+                JBE     .L1I9
+
+                POP     BX
+                JMP     .LP
+
+.L1I9:          MOV     DH,[IEC9_0+BX]
+                POP     BX
+                RETN
+
+.L15:           PUSH    BX              ;IEC8
+                AND     BX,7
+                CMP     BL,5
+                JBE     .L1I8
+
+                POP     BX
+                JMP     .LP
+
+.L1I8:          MOV     DH,[IEC8_0+BX]
+                POP     BX
+                RETN
+
+.LM:            OR      BH,BH
+                JNS     .LR
+
+.LM1:           TEST    [TED_13],1
+                JZ      .LR
+
+                MOV     GS,[SA_ROM_LO]  ;$$$
+                TEST    BH,40H
+                JZ      .L16
+
+                MOV     GS,[SA_ROM_HI]  ;$$$
+                CMP     BH,0FCH         ;KERNEL FIX
+                JNZ     .L16
+
+                MOV     GS,[TSA_ROM]    ;$$$
+
+.L16:           MOV     DH,[GS:BX]
+                RETN
+
+.LR:            MOV     DH,[FS:BX]
+                RETN
+

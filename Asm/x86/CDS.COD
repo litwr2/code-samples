@@ -1,0 +1,565 @@
+CDS_LED:        XOR     AL,AL
+                XCHG    AL,[LED_NEW]
+                TEST    AL,30H
+                JZ      .EXIT
+
+                MOV     BX,[DEV1FNP]
+                CMP     BYTE [BX],0
+                JZ      .EXIT
+
+                TEST    [CPU_1],8
+                JNZ     .L1
+
+                MOV     BX,[DEV1FH]
+                TEST    AL,20H
+                JNZ     .REC
+
+                TEST    [LED],10H
+                JZ      .PLAYON
+
+                TEST    [LED],20H       ;WRITE?
+                JNZ     .RECOFF
+
+                CALL    DS_ENDREAD
+                JMP     .L2
+
+.RECOFF:        CALL    DS_ENDCTFWR
+.L2:            AND     [LED],0CFH
+                JMP     SET_LED
+
+.PLAYON:        OR      [LED],10H
+                CALL    CDS_INITAPE
+                JMP     SET_LED
+                
+.REC:           CMP     [DEV1WP],0
+                JNZ     .EXIT
+
+                TEST    [LED],20H
+                JNZ     .RECOFF
+
+                TEST    [LED],10H
+                JNZ     .EXIT
+
+                OR      [LED],30H
+                CALL    CDS_INITAPE
+                JMP     SET_LED
+
+.L1:            MOV     AH,[LED]
+                TEST    AH,20H
+                JZ      .L3
+
+                AND     [LED],0CFH
+                JMP     SET_LED
+
+.L3:            XOR     [LED],AL
+                AND     AL,20H
+                SHR     AL,1
+                OR      [LED],AL
+                JMP     SET_LED
+
+.EXIT:          RETN
+
+CDS_INITAPE:    CMP     [DEV1FMT],'C'
+                JZ      CDS_INICTF
+
+CDS_INITAP:     MOV     EAX,[TOTALTICKS]
+                CMP     [DS_TAPF],0
+                JNE     .L1
+
+                MOV     [DS_TIMER],EAX
+                INC     [DS_TAPF]
+                RETN
+
+.L1:            SUB     EAX,[DS_MSUM]
+                MOV     [DS_TIMER],EAX
+                RETN
+
+DS_ENDREAD:     CMP     [DEV1FMT],'C'
+                JZ      DS_ENDCTFRD
+
+CDS_ENDTAP:     MOV     EAX,[TOTALTICKS]
+                SUB     EAX,[DS_TIMER]
+                MOV     [DS_MSUM],EAX
+                RETN
+
+CDS_INICTF:     MOV     EAX,[TOTALTICKS]
+                MOV     [DS_TIMER],EAX
+
+                MOV     BX,[DEV1FH]
+                TEST    [LED],20H
+                JNZ     CDS_INICTFWR
+
+CDS_INICTFRD:   MOV     AX,4200H        ;SEEK
+                XOR     CX,CX
+                MOV     EDX,6
+                MOV     [DS_NPOS],EDX
+                INT     21H
+
+                MOV     DI,[DS_HPOSN]   ;IN: DI-BLOCK#, BX-FH
+.L1:            DEC     DI              ;USE: AX,CX,DX,DI
+                JZ      .L2
+
+                MOV     AH,3FH
+                MOV     DX,DS_NPOS
+                MOV     CX,4
+                INT     21H
+
+                MOV     AX,4200H
+                MOV     DX,WORD [DS_NPOS]
+                MOV     CX,WORD [DS_NPOS+2]
+                INT     21H
+                JMP     .L1
+
+.L2:            MOV     CX,5
+                MOV     EAX,[DS_NPOS]
+                ADD     EAX,ECX
+                MOV     [DS_RPOSE],EAX
+                MOV     BYTE [DS_MVAL+1],CH
+                MOV     AH,3FH
+                MOV     DX,DS_NPOS
+                INT     21H
+
+                MOV     EAX,[DS_NPOS]
+                SUB     EAX,[DS_RPOSE]
+                MOV     [DS_RPOSE],EAX
+                MOV     [DS_RPOSC],0
+                ADD     [DS_TIMER],200000      ;approx. 0.25ms delay
+                RETN
+
+CDS_INICTFWR:   MOV     EAX,[DEV1SZ]    ;IN: BX=FH
+                MOV     [DS_SPOS],EAX
+
+                XOR     EAX,EAX         
+                MOV     [DS_SBUF],AL
+                TEST    [CPU_1],2
+                JZ      .L2
+
+                NOT     [DS_SBUF]
+.L2:            MOV     [DS_MVAL],400H
+                MOV     WORD [DS_LBC],AX
+                MOV     [DS_BUF_PTR],AX
+                MOV     [DS_MCOUNT],EAX
+                MOV     [DS_MSUM],EAX
+
+                MOV     AX,4202H        ;SEEK EOF & WRITE BLOCK HEADER
+                XOR     DX,DX
+                XOR     CX,CX
+                INT     21H
+
+                MOV     CX,5            ;WRITE DUMMY 5 BYTES
+                MOV     AH,40H
+                INT     21H
+                RETN
+
+DS_ENDCTFRD:    MOV     AX,[DS_HPOSN]   ;USE: AX,BX,CX,DX
+                INC     AX
+                CMP     AX,[DS_QENTR]
+                JB      .L1
+
+                MOV     AX,1
+.L1:            MOV     [DS_HPOSN],AX
+                RETN
+
+DS_ENDCTFWR:    CALL    DSW_BIT
+                CALL    DSW_FLUSH
+
+                MOV     AX,WORD [DS_LBC]        ;FLUSH LAST BITS
+                OR      AH,AH
+                JZ      .L10
+
+.L11:           INC     AH
+                SHL     AL,1
+                CMP     AH,8
+                JNZ     .L11
+
+                MOV     [DS_LBC],AL
+                MOV     AH,40H          ;WRITE LAST BYTE TO THE FILE
+                MOV     BX,[DEV1FH]
+                MOV     DX,DS_LBC
+                MOV     CX,1
+                INT     21H
+
+.L10:           MOV     AX,4202H                ;GET FILESIZE
+                XOR     DX,DX
+                XOR     CX,CX
+                MOV     BX,[DEV1FH]
+                INT     21H
+
+                MOV     WORD [DS_NPOS],AX       ;CONDITIONAL TRUNCATION
+                MOV     WORD [DS_NPOS+2],DX     ; FOR TIMY BLOCK <=7
+                MOV     AX,4200H                ;SEEK LAST EOF
+                MOV     DX,WORD [DS_SPOS]
+                MOV     CX,WORD [DS_SPOS+2]
+                INT     21H
+
+                MOV     EAX,[DS_NPOS]
+                SUB     EAX,[DS_SPOS]
+                XOR     CX,CX
+                CMP     EAX,7
+                MOV     AH,40H
+                JBE     .L6             ;TRUNCATE!
+                
+                MOV     DX,DS_NPOS
+                MOV     CL,5
+                INT     21H
+                
+                INC     [DS_QENTR]
+                MOV     EAX,[DS_NPOS]
+                MOV     [DEV1SZ],EAX
+                MOV     [DS_HPOSN],1
+
+.WRITEHDR:      MOV     AX,4200H                ;SEEK START OF FILE
+                XOR     CX,CX
+                XOR     DX,DX
+                INT     21H
+
+                MOV     AH,40H          ;WRITE
+                MOV     DX,DS_FVER
+                MOV     CX,6
+.L6:            INT     21H
+
+                MOV     AH,3EH          ;CLOSE
+                INT     21H
+                MOV     DX,DEV1PATH     ;REOPEN R/W
+                MOV     AX,3D02H
+                INT     21H
+                MOV     [DEV1FH],AX
+                RETN
+
+CDS_IO_WR:      PUSH    EAX
+                PUSH    EDX
+                PUSH    CX
+                PUSH    DI
+                TEST    [CPU1_XOR],8    ;MOTOR LINE CHANGED?
+                JZ      .L1
+
+                TEST    [LED],10H
+                JZ      .L5
+
+                TEST    [CPU_1],8       ;MOTOR TURNED ON?
+                JNZ     .MOTOROFF
+
+                MOV     BX,[DEV1FNP]
+                CMP     BYTE [BX],0
+                JE      .L5
+
+                CALL    CDS_INITAPE
+.L5:            POP     DI
+.GL1:           POP     CX
+                MOV     BX,1
+                POP     EDX
+                POP     EAX
+                RETN
+
+.MOTOROFF:      MOV     BX,[DEV1FH]
+                TEST    [LED],20H
+                JZ      .ENDREAD
+
+                CALL    DS_ENDCTFWR
+                JMP     .L5
+
+.ENDREAD:       CALL    DS_ENDREAD
+                JMP     .L5
+
+.L1:            TEST    [CPU1_XOR],2    ;WRITE LINE CHANGED?
+                JZ      .L5
+
+                TEST    [CPU_1],8       ;MOTOR ON?
+                JNZ     .L5
+
+                TEST    [LED],20H
+                JZ      .L5
+
+                CALL    DSW_BIT
+                JMP     .L5
+
+DSW_BIT:        MOV     EAX,[TOTALTICKS]        ;[SEG_DS]:[DS_BUF_PTR]=
+                MOV     EDX,EAX                 ;=MIN(400H,TOTALTICKS-DS_TIMER)
+                XCHG    EAX,[DS_TIMER]          ;DS_BUF_PTR=+2
+                SUB     EDX,EAX
+                CMP     EDX,400H
+                JBE     .L1
+
+                MOV     DX,400H
+.L1:            PUSH    DS
+                LDS     BX,DWORD [DS_BUF_PTR]
+                MOV     [BX],DX
+                ADD     BX,2
+                POP     DS
+
+                CMP     BX,8000
+                MOV     [DS_BUF_PTR],BX
+                JZ      DSW_FLUSH
+
+                RETN
+
+DSW_FLUSH:      PUSH    ES
+                XOR     BX,BX
+                MOV     ES,[DS_BUF_PTR+2]
+.L8:            MOV     AX,[DS_MVAL]
+                MOV     CX,[ES:BX]
+                MOV     DX,CX
+                CMP     AX,CX
+                JB      .L1
+
+                SHR     DX,1            ;DS_MVAL>=[ES:BX]
+                ADD     DX,CX
+                CMP     AX,DX
+                JA      .L2
+
+.L7:            ADD     [DS_MSUM],ECX   ;DS_MVAL<=1.5*([ES:BX])
+                INC     [DS_MCOUNT]
+                CMP     AX,CX
+                JZ      .L3
+
+                JS      .L4
+
+                SUB     AX,2
+.L4:            INC     AX
+.L3:            MOV     [DS_MVAL],AX
+                JMP     .L5
+
+.L2:            MOV     DX,CX
+                SUB     DX,[ES:BX+2]
+                JNS     .L6
+
+                NEG     DX
+.L6:            CMP     DX,7
+                JA      .L7
+
+                MOV     [DS_MVAL],CX
+                MOV     [DS_MSUM],ECX
+                MOV     [DS_MCOUNT],1
+                JMP     .L5
+
+.L1:            MOV     DX,AX
+                SHR     DX,1
+                ADD     DX,AX
+                CMP     DX,CX
+                JA      .L7
+
+.L5:            ADD     BX,2
+                CMP     BX,[DS_BUF_PTR]
+                JNZ     .L8
+
+                MOV     EAX,[DS_MSUM]
+                XOR     EDX,EDX
+                DIV     [DS_MCOUNT]
+                SHL     EDX,1
+                CMP     EDX,[DS_MCOUNT]
+                JB      .L9
+
+                INC     AX
+.L9:            MOV     [DS_MVAL],AX
+                MOV     CX,AX
+                SHR     CX,1
+                MOV     [DS_MVAL2],CX
+                
+                XOR     BX,BX
+                XOR     DI,DI
+.L15:           MOV     AX,[ES:BX]
+                XOR     DX,DX
+                ADD     AX,[DS_MVAL2]
+                DIV     [DS_MVAL]
+                OR      AX,AX
+                JNZ     .L10
+
+                INC     AX
+.L10:           MOV     DX,AX
+                MOV     AX,WORD [DS_LBC]
+.L11:           ROL     [DS_SBUF],1
+                RCL     AL,1
+                INC     AH
+                DEC     DX
+                CMP     AH,8
+                JZ      .L12
+
+                OR      DX,DX
+                JNZ     .L11
+
+.L14:           ADD     BX,2
+                NOT     [DS_SBUF]
+                MOV     WORD [DS_LBC],AX
+                CMP     BX,[DS_BUF_PTR]
+                JNZ     .L15
+
+                MOV     CX,DI
+                XOR     DX,DX
+                MOV     BX,[DEV1FH]
+                MOV     [DS_BUF_PTR],DX
+                PUSH    DS
+                PUSH    ES
+                POP     DS
+                MOV     AH,40H
+                INT     21H
+                POP     DS
+                POP     ES
+                RETN
+
+.L12:           STOSB
+                XOR     AX,AX
+                OR      DX,DX
+.L17:           JZ      .L14
+
+                ROL     [DS_SBUF],1
+                RCL     AL,1
+                INC     AH
+                DEC     DX
+                JMP     .L17
+
+RD_DS_BUF:      PUSH    EAX                     ;IN: BX=FH
+                MOV     EAX,[DS_RPOSC]          ;USE: NOTHING!
+                MOV     [DS_RPOSP],EAX
+                ADD     EAX,8000                ;ds buffer size
+                CMP     EAX,[DS_RPOSE]
+                JB      .L1
+
+                MOV     EAX,[DS_RPOSE]
+.L1:            MOV     [DS_RPOSC],EAX
+                PUSH    CX
+                SUB     EAX,[DS_RPOSP]
+                MOV     CX,AX
+                MOV     AH,3FH
+                PUSH    DS
+                XOR     DX,DX
+                MOV     DS,[DS_BUF_PTR+2]
+                INT     21H
+                POP     DS
+                POP     CX
+                POP     EAX
+.L0:            RETN
+
+CDS_IO_RD:      TEST    [CPU_1],8       ;MOTOR ON?
+                JNZ     RD_DS_BUF.L0    ;->RETN
+
+                TEST    [LED],30H
+                JPE     RD_DS_BUF.L0    ;->RETN
+
+                PUSH    EAX
+                PUSH    EDX
+                PUSH    CX
+
+                AND     [CPU_1],0EFH
+                MOV     EAX,[TOTALTICKS]          ;READ BIT
+                CMP     [DEV1FMT],'C'
+                JNZ     .TAP
+
+                MOV     BX,[DS_MVAL]
+                SUB     EAX,[DS_TIMER]
+                JL      CDS_IO_WR.GL1
+
+                XOR     EDX,EDX
+                DIV     EBX
+                SHL     EDX,1
+                CMP     EDX,EBX
+                JB      .L2
+
+                INC     EAX
+.L2:            MOV     CL,AL
+                SHR     EAX,3
+                MOV     [DS_RPOSBY],EAX
+                AND     CX,7
+.L3:            CMP     EAX,[DS_RPOSC]
+                JB      .L4
+
+                MOV     BX,[DEV1FH]
+                CMP     EAX,[DS_RPOSE]
+                JB      .L5
+
+                CALL    DS_ENDREAD
+                PUSH    DI
+                MOV     EAX,[TOTALTICKS]
+                MOV     [DS_TIMER],EAX
+                CALL    CDS_INICTFRD
+                JMP     CDS_IO_WR.L5
+
+.L5:            CALL    RD_DS_BUF
+                JMP     .L3
+
+.L4:            SUB     EAX,[DS_RPOSP]
+                MOV     BX,AX
+                PUSH    DS
+                MOV     DS,[DS_BUF_PTR+2]
+                MOV     AL,[BX]
+                POP     DS
+
+                SUB     CL,7
+                NEG     CL
+                BT      AX,CX
+                RCL     CH,5
+                OR      [CPU_1],CH
+                JMP     CDS_IO_WR.GL1
+
+.TAP:           SUB     EAX,[DS_TIMER]
+.LT1:           CMP     EAX,[DS_TAPSUM]
+                JBE     .LT2
+
+                CALL    DS_TAPDATA
+                ADD     [DS_TAPSUM],EDX
+                MOV     BX,[DS_BUF_PTR]
+                CMP     BX,[DS_TAPEB]
+                JBE     .LT1
+
+.LT2:           CMP     [DS_TAP+12],2   ;TAP VER
+                JZ      .LT4
+
+                MOV     EDX,[DS_TAPINT]
+                SHR     EDX,1           ;ver1
+                NEG     EDX
+                ADD     EDX,[DS_TAPSUM]
+                CMP     EAX,EDX
+                JB      CDS_IO_WR.GL1
+
+                OR      [CPU_1],10H
+                JMP     CDS_IO_WR.GL1
+
+.LT4:           MOV     AL,[DS_TAPPM]   ;ver2
+                OR      [CPU_1],AL
+                JMP     CDS_IO_WR.GL1
+
+DS_TAPGETB:     PUSH    SI              ;USE: BX,DX,CX
+                PUSH    ES
+                LES     SI,DWORD [DS_BUF_PTR]
+                CMP     SI,[DS_TAPEB]
+                JB      .L1
+
+                JA      .L2
+
+                XOR     SI,SI
+                MOV     AH,3FH
+                MOV     BX,[DEV1FH]
+                MOV     CX,8000
+                XOR     DX,DX
+                PUSH    DS
+                PUSH    ES
+                POP     DS
+                INT     21H
+                POP     DS
+                MOV     [DS_TAPEB],AX
+                MOV     [DS_BUF_PTR],SI
+
+.L1:            MOV     DL,[ES:SI]
+                INC     [DS_BUF_PTR]
+.L2:            POP     ES
+                POP     SI
+                RETN
+
+DS_TAPDATA:     XOR     EDX,EDX
+                PUSH    EAX             ;OUT:EDX
+                CALL    DS_TAPGETB
+                SHL     DX,3
+                OR      DX,DX
+                JNZ     .L1
+
+                CALL    DS_TAPGETB
+                MOV     DH,DL
+                CALL    DS_TAPGETB
+                SHL     EDX,16
+                CALL    DS_TAPGETB
+                XCHG    DH,DL
+                BSWAP   EDX
+.L1:            XOR     [DS_TAPPM],10H  ;ver2
+                MOV     [DS_TAPINT],EDX ;ver1
+                POP     EAX
+                RETN
+

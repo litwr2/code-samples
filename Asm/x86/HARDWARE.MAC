@@ -1,0 +1,166 @@
+MACRO           PARAMC  D
+{
+PREP#D#PARAM:   MOV     BP,[DI]
+                MOV     SI,.DIRREL
+                CMP     BYTE [DS:BP+1],':'
+                JNZ     .L1
+
+                MOV     SI,.DISKABS
+                CMP     BYTE [DS:BP+2],'\'
+                JZ      .LE
+
+                MOV     SI,.DISKREL
+                JMP     .LE
+
+.L1:            CMP     BYTE [DS:BP],'\'
+                JNZ     .LE
+
+                MOV     SI,.DIRABS
+.LE:            JMP     SI
+           
+.DIRREL:        MOV     DX,WORD [FPATH]
+                JMP     .LT0
+
+.DIRABS:        MOV     DX,WORD [FPATH]
+                MOV     SI,DEV#D#PATH
+                MOV     [SI],DX
+                ADD     SI,2
+                JMP     .LT7
+
+.DISKABS:       MOV     SI,DEV#D#PATH
+                JMP     .LT7
+
+.DISKREL:       MOV     DX,[DS:BP]
+                ADD     BP,2
+.LT0:           MOV     WORD [DEV#D#PATH],DX
+                MOV     [DEV#D#PATH+2],'\'
+                MOV     AH,47H
+                SUB     DL,'@'
+                MOV     SI,DEV#D#PATH+3
+                INT     21H                     ;GET CURDIR
+
+.LT4:           CMP     BYTE [SI],0
+                JZ      .LT7
+
+.LT3:           INC     SI
+                CMP     BYTE [SI],0
+                JNZ     .LT3
+
+                MOV     WORD [SI],'\'
+                INC     SI
+.LT7:           DEC     BX
+                CMP     BX,BP
+                JB      .LT6
+
+                CMP     BYTE [BX],':'
+                JZ      .LT5
+
+                CMP     BYTE [BX],'\'
+                JNZ     .LT7
+
+.LT5:           CMP     BP,BX
+                JAE     .LT6
+
+                MOV     AL,[DS:BP]
+                MOV     [SI],AL
+                INC     SI
+                INC     BP
+                JMP     .LT5
+
+.LT6:           MOV     WORD [SI],0
+                MOV     [DEV#D#PATH+2],'\'
+                MOV     AH,3BH
+                MOV     DX,DEV#D#PATH
+                INT     21H
+
+                MOV     AH,47H
+                MOV     DL,[DEV#D#PATH]
+                SUB     DL,'@'
+                MOV     SI,DEV#D#PATH+3
+                INT     21H
+
+                CMP     BYTE [SI],0
+                JZ      .LT8
+
+.LT9:           INC     SI
+                CMP     BYTE [SI],0
+                JNZ     .LT9
+
+                MOV     WORD [SI],'\'
+                INC     SI
+.LT8:           MOV     [DEV#D#FNP],SI
+                INC     BX
+                XOR     CX,CX
+.LT10:          MOV     AL,[BX]
+                CMP     AL,'.'
+                JNZ     .LT11
+
+.LT12:          CMP     CL,8
+                JZ      .LT11
+
+                MOV     BYTE [SI],' '
+                INC     SI
+                INC     CX
+                JMP     .LT12
+
+.LT11:          MOV     [SI],AL
+                INC     SI
+                INC     CX
+                INC     BX
+                OR      AL,AL
+                JNZ     .LT10
+
+                RETN
+}
+
+MACRO           ADDDISC D
+{
+ADDDISK#D#:     MOV     DX,DEV#D#PATH
+                MOV     [DEV#D#WP],0
+                MOV     AX,3D02H        ;OPEN FILE, R/W
+                INT     21H
+                JNC     .L2
+
+                INC     [DEV#D#WP]
+                MOV     AX,3D00H        ;TRY R/O
+                INT     21H
+                JC      .FAIL
+
+.L2:            MOV     [DEV#D#FH],AX
+                MOV     [D64_POS],12H   ;READ BAM
+                MOV     BX,AX
+                CALL    SEEK_D64_POS
+                MOV     AH,3FH
+                MOV     CX,256
+                MOV     DX,IEC#D#BAM
+                INT     21H
+
+                XOR     SI,SI           ;CLEAR SECTORS MAP
+.L4:            MOV     BYTE [DEV#D#ES+SI],1
+                INC     SI
+                CMP     SI,683
+                JB      .L4
+
+                MOV     AX,4202H
+                XOR     CX,CX
+                XOR     DX,DX
+                INT     21H
+
+                CMP     AX,175531 MOD 65536
+                JNZ     .L5
+
+                MOV     AX,4200H        ;READ SECTORS MAP
+                MOV     CX,174848/65536
+                MOV     DX,174848 MOD 65536
+                INT     21H
+
+                MOV     DX,DEV#D#ES
+.L7:            MOV     AH,3FH
+                MOV     CX,683
+                INT     21H
+.L5:            RETN
+
+.FAIL:          MOV     BX,[DEV#D#FNP]
+                MOV     BYTE [BX],0
+                RETN
+}

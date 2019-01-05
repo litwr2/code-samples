@@ -1,0 +1,59 @@
+SCR2_TOP_X      EQU     20
+SCR2_TOP_Y      EQU     0
+SCR2_LEN        EQU     29
+HELP2_TOP_Y     EQU     6
+SCR2_1          DB      'ษออออออออออออออออัออออัอออออป'
+SCR2_2          DB      'บ    FileName    ณTypeณSize บ'
+SCR2_3          DB      'ศออออออออออออออออฯออออฯอออออผ'
+
+BMENU2_T        DB      '1Help   2       3       4       5ExFile 6       '
+                DB      '7       8       9CBM 1  10Quit  '
+                ;         1         2         3         4         5
+                ;12345678901234567890123456789012345678901234567890123456789
+MHELP2  DB      '"F1" invokes this text.                                    '
+        DB      '"F5" ("Extract File") extracts a selected file from the D64'
+        DB      '     or CTF image to the appropriate MS-DOS P00, S00, U00, '
+        DB      '     R00 or D00 file.                                      '
+        DB      '"F9" toggles between CBM Characters Set #1 and #2.         '
+        DB      '"F10" returns to the emulator.                             '
+        DB      '"Enter" loads a program (from D64) or sets the datasette   '
+        DB      '     head position (in CTF).                               '
+        DB      '"Esc" or right mouse button returns to the main menu.      '
+        DB      'Left mouse button selects menu item.                       '
+CP_IN_WIN2      DB      0
+CP_MAX_WIN2     DB      21
+WIN_POS2        DW      0
+LIST_CAP2       DW      ?
+DEV             DB      '--'
+CBM_FLIST_CAP   EQU     144
+CBM_FN_LIST     RB      16*CBM_FLIST_CAP
+CBM_TY_LIST     RB      4*CBM_FLIST_CAP
+CBM_SZ_LIST     RW      CBM_FLIST_CAP
+CBM_FP_LIST     RW      CBM_FLIST_CAP
+CBM_DE_LIST     RW      CBM_FLIST_CAP   ;DIR ENTRIES POINTERS (#, SECTOR)
+CBM_RL_LIST     RB      CBM_FLIST_CAP
+CBM_FH          DW      ?
+IBM_FH          DW      ?
+D64_POS         DW      ?
+CBM_FTYPE       DW      ?
+CBM_MENUPOS     DW      ?
+DETEMP          DB      ?
+CBM00ID         DB      'C64File',0     ;compatibility!
+MENU2_TEMP      DB      ?
+
+DSM_SBUF        DB      ?
+DSM_LBC         DB      ?
+DSM_LBQ         DB      ?
+DSM_TIMER       DD      ?
+DSM_MSUM        DD      ?
+DSM_TEMP        DW      ?
+DSM_BUF_PTR     DW      ?
+DSM_FVER        DW      0               ;CURRENT FORMAT VERSION
+DSM_HPOSN       DW      ?               ;CURRENT TAPE HEAD POSITION NUMBER
+DSM_QENTR       DW      ?               ;QUANTITY OF CURRENT TAPE ENTRIES +1
+DSM_RPOSP       DD      ?               ;BUFFER START POS
+DSM_RPOSC       DD      ?               ;BUFFER END POS
+DSM_RPOSE       DD      ?               ;END OF BLOCK
+DSM_NPOS        DD      ?               ;NEXT POSITION
+DSM_MVAL        DW      ?
+

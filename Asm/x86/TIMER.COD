@@ -1,0 +1,127 @@
+SPEAKER_0E:     PUSH    AX
+                PUSH    BX
+                PUSH    DX
+                MOV     DL,[TED_12]
+                XCHG    DL,DH
+                CALL    SPEAKER_SFREQ
+                MOV     [POS2SND1],AX
+                SHR     AX,1
+                MOV     [POS1SND1],AX
+                MOV     [SND1POS],0
+                POP     DX
+                POP     BX
+                POP     AX
+                RETN
+
+SPEAKER_0F:     PUSH    AX
+                PUSH    BX
+                PUSH    DX
+                MOV     DL,[TED_10]
+                XCHG    DL,DH
+                CALL    SPEAKER_SFREQ
+                MOV     [POS2SND2],AX
+                MOV     BX,AX
+                SHR     AX,1
+                MOV     [POS1SND2],AX
+                SUB     BX,AX
+                SHR     BX,3
+                JNZ     .L1
+
+                INC     BX
+.L1:            MOV     [NOISE_OFFSET],BX
+                MOV     [SND2POS],0
+                POP     DX
+                POP     BX
+                POP     AX
+                RETN
+
+SPEAKER_10:     PUSH    AX
+                PUSH    BX
+                PUSH    DX
+                MOV     DL,[TED_F]
+                CALL    SPEAKER_SFREQ
+                MOV     [POS2SND2],AX
+                SHR     AX,1
+                MOV     [POS1SND2],AX
+                MOV     [SND2POS],0
+                POP     DX
+                POP     BX
+                POP     AX
+                RETN
+
+SPEAKER_11:     PUSH    AX
+                MOV     AL,DH
+                AND     AL,0FH
+                CMP     AL,8
+                JBE     .L1
+
+                MOV     AL,8
+.L1:            MOV     [VOL],AL
+                TEST    DH,10H
+                JNZ     .L2
+
+                MOV     [SND1POS],0
+.L2:            TEST    DH,20H
+                JNZ     .L3
+
+                MOV     [SND2POS],0
+                JMP     .L4
+
+.L3:            MOV     AX,[POS2SND2]
+                SHR     AX,1
+                MOV     [POS1SND2],AX
+.L4:            TEST    [TED_11],80H
+                JZ      .L5
+
+                MOV     [SND1POS],0
+                MOV     [SND2POS],0
+.L5:            POP     AX
+                RETN
+
+SPEAKER_12:     PUSH    AX
+                PUSH    BX
+                PUSH    DX
+                MOV     DL,[TED_E]
+                CALL    SPEAKER_SFREQ
+                MOV     [POS2SND1],AX
+                SHR     AX,1
+                MOV     [POS1SND1],AX
+                MOV     [SND1POS],0
+                POP     DX
+                POP     BX
+                POP     AX
+                RETN
+
+SPEAKER_SFREQ:;  INC     DX
+                AND     DH,3            ;DX - COMMODORE SOUND FREQ DETERMINANT
+
+                MOV     BX,1024
+                SUB     BX,DX
+                MOV     EAX,SOUND_CONST
+                XOR     EDX,EDX
+                DIV     EBX
+                SHL     DX,1
+                CMP     BX,DX
+                JA      .L1
+
+                INC     EAX
+.L1:            MOV     EBX,EAX
+                XOR     EDX,EDX
+                MOV     EAX,1193180/TIMERV
+                DIV     EBX
+                CMP     EBX,EDX
+                JA      .L2
+
+                INC     AX
+.L2:            XOR     EBX,EBX         ;AX - POS2
+                RETN
+
+INIT_SPEAKER:   INC     [TIMER_SOUND]
+                RETN
+
+EXIT_SPEAKER:   MOV     [TIMER_SOUND],0
+                IN      AL,61H
+                AND     AL,0FDH
+                OUT     61H,AL
+                RETN
+

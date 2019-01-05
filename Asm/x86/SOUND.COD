@@ -1,0 +1,62 @@
+SET_ADLIBSND:   XOR     BX,BX
+.L1:            MOV     AX,[ADLIB_VECS+BX]
+                MOV     [RESET_SOUND+BX],AX
+                ADD     BX,2
+                CMP     BL,14
+                JNZ     .L1
+
+                RETN
+
+SET_TIMERSND:   XOR     BX,BX
+.L1:            MOV     AX,[SPEAKER_VECS+BX]
+                MOV     [RESET_SOUND+BX],AX
+                ADD     BX,2
+                CMP     BL,14
+                JNZ     .L1
+
+                RETN
+
+SET_NOSND:      XOR     BX,BX
+.L0:            MOV     AX,NO_SOUND
+.L1:            MOV     [RESET_SOUND+BX],AX
+                ADD     BX,2
+                CMP     BL,14
+                JNZ     .L1
+
+NO_SOUND:       RETN
+
+SET_SBSND:      XOR     BX,BX
+                CMP     [SB_ST],BL
+                JE      SET_NOSND.L0
+
+.L1:            MOV     AX,[SB_VECS+BX]
+                MOV     [RESET_SOUND+BX],AX
+                ADD     BX,2
+                CMP     BL,14
+                JNZ     .L1
+
+                RETN
+
+RELOAD_SND:     MOV     BX,0FF0EH
+.L1:            CALL    MREAD_DH
+                CALL    MSTORE_DH
+                INC     BX
+                CMP     BL,12H
+                JBE     .L1
+
+                RETN
+
+EXIT_SND_E_F:   CMP     [EXIT_SOUND],0
+                JE      .L1
+
+                CALL    [EXIT_SOUND]
+.L1:            RETF
+
+SILENCE_F:      XOR     DH,DH
+                CALL    [SOUND_11]
+                RETF
+
+RESET_SND_E_F:  CALL    [SOUND_SRC+EBX*2]       ;IN: BX
+                CALL    [RESET_SOUND]
+                RETF
+

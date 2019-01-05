@@ -1,0 +1,238 @@
+SET_INTR8:      MOV     AX,3508H        ;SAVE/SET INTR8 VECTOR
+                INT     21H
+                PUSH    DS
+                PUSH    CS
+                POP     DS
+                MOV     [SAVE8LO],BX
+                MOV     [SAVE8HI],ES
+                MOV     DX,INTR8SND
+                MOV     AX,2508H
+                INT     21H
+                POP     DS
+
+                CLI
+                MOV     AL,36H          ;SET TIMER HARDWARE
+                OUT     43H,AL
+                MOV     AL,TIMERV AND 0FFH
+                OUT     40H,AL
+                MOV     AL,TIMERV SHR 8
+                OUT     40H,AL
+                STI
+                RETN
+
+RESTORE_INTR8:  PUSH    DS
+                MOV     DX,[CS:SAVE8LO]     ;RESTORE INTR8 VECTOR
+                MOV     DS,[CS:SAVE8HI]
+                MOV     AX,2508H
+                INT     21H
+                POP     DS
+
+                CLI
+                MOV     AL,36H          ;RESTORE TIMER HARDWARE
+                OUT     43H,AL
+                XOR     AL,AL
+                OUT     40H,AL
+                OUT     40H,AL
+                STI
+                RETN
+
+INTR8SND:       PUSH    AX
+                PUSH    BX
+                PUSH    DS
+                MOV     AX,SEG_DATA
+                MOV     DS,AX
+        
+                CMP     [TIMER_ST],0
+                JNE     .L22
+
+                INC     [SYNCHRO_TICKS]
+.L22:           CMP     [SB_SOUND],0
+                JNE     SB_SND
+
+                IN      AL,61H
+                AND     AL,0FDH
+                CMP     [TIMER_SOUND],0
+                JE      .L14
+
+                MOV     BX,[SND1POS]
+                TEST    [TED_11],10H
+                JZ      .L8
+
+                TEST    [TED_11],80H
+                JNZ     .L7
+
+                CMP     BX,[POS1SND1]
+                JBE     .L4
+
+.L7:            INC     BX
+                OR      AL,2
+                CMP     BX,[POS2SND1]
+                JBE     .L6
+
+                XOR     BX,BX
+                JMP     .L6
+
+.L4:            INC     BX
+.L6:            MOV     [SND1POS],BX
+.L8:            PUSH    AX
+                MOV     BX,[SND2POS]
+                TEST    [TED_11],60H
+                JZ      .L8A
+
+                TEST    [TED_11],20H
+                JNZ     .L9
+
+                PUSH    AX
+                MOV     AX,[POS1SND2]
+                ADD     AX,[NOISE_OFFSET]
+                TEST    BYTE [TOTALTICKS],1
+                JZ      .L11
+
+                SHR     AX,1
+.L11:           CMP     AX,[POS2SND2]
+                JB      .L10
+
+                SHR     AX,3
+                JNZ     .L11
+
+.L10:           MOV     [POS1SND2],AX
+                POP     AX
+.L9:            TEST    [TED_11],80H
+                JNZ     .L7A
+
+                CMP     BX,[POS1SND2]
+                JA      .L4A
+
+.L7A:           INC     BX
+                OR      AL,2
+                CMP     BX,[POS2SND2]
+                JBE     .L6A
+
+                XOR     BX,BX
+                JMP     .L6A
+
+.L4A:           INC     BX
+.L6A:           MOV     [SND2POS],BX
+.L8A:           POP     BX
+                OR      AL,BL
+                MOVZX   BX,[VOL]
+                SHL     BX,4            ;*16
+                LEA     BX,[TIMER_VOL+BX]
+                PUSH    AX
+                MOVZX   AX,BYTE [INTR8COUNT]
+                AND     AL,15
+                ADD     BX,AX
+                POP     AX
+                CMP     BYTE [BX],'0'
+                JNE     .L12
+
+.L14:           AND     AL,0FDH
+.L12:           OUT     61H,AL
+.L0:            INC     [INTR8COUNT]
+                CMP     [INTR8COUNT],65536/TIMERV
+                JA      .L1
+
+                MOV     AL,20H
+                OUT     20H,AL
+                CMP     [TIMER_ST],0
+                JNZ     .L23
+
+                MOV     AX,[SPEED_LIMIT]
+                ADD     [TICKS2TED],AX
+.L23:           POP     DS
+                POP     BX
+                POP     AX
+                IRET
+
+.L1:            XOR     AX,AX
+                MOV     [INTR8COUNT],AX
+                POP     DS
+                POP     BX
+                POP     AX
+                DB      0EAH
+SAVE8LO         DW      0
+SAVE8HI         DW      0
+
+SB_SND:         MOV     [SB_CH],0
+                MOV     BX,[SND1POS]
+                TEST    [TED_11],10H
+                JZ      .L8
+
+                TEST    [TED_11],80H
+                JNZ     .L7
+
+                CMP     BX,[POS1SND1]
+                JBE     .L4
+
+.L7:            INC     BX
+                INC     [SB_CH]
+                CMP     BX,[POS2SND1]
+                JBE     .L6
+
+                XOR     BX,BX
+                JMP     .L6
+
+.L4:            INC     BX
+.L6:            MOV     [SND1POS],BX
+.L8:            MOV     BX,[SND2POS]
+                TEST    [TED_11],60H
+                JZ      .L8A
+
+                TEST    [TED_11],20H
+                JNZ     .L9
+
+                MOV     AX,[POS1SND2]
+                ADD     AX,[NOISE_OFFSET]
+                TEST    BYTE [TOTALTICKS],1
+                JZ      .L11
+
+                SHR     AX,1
+.L11:           CMP     AX,[POS2SND2]
+                JB      .L10
+
+                SHR     AX,3
+                JNZ     .L11
+
+.L10:           MOV     [POS1SND2],AX
+.L9:            TEST    [TED_11],80H
+                JNZ     .L7A
+
+                CMP     BX,[POS1SND2]
+                JBE     .L4A
+
+.L7A:           INC     BX
+                INC     [SB_CH]
+                CMP     BX,[POS2SND2]
+                JBE     .L6A
+
+                XOR     BX,BX
+                JMP     .L6A
+
+.L4A:           INC     BX
+.L6A:           MOV     [SND2POS],BX
+.L8A:           MOVZX   AX,[SB_CH]
+.L16:           OR      AL,AL
+                JZ      .L15
+
+                ADD     AH,[VOL]
+                DEC     AX
+                JMP     .L16
+
+.L15:           MOVZX   BX,AH
+                MOVZX   AX,[SB_VOL+BX]
+                ADD     [SB_SUM],AX
+                ;MOV     [SB_SUM],AX
+                INC     [SB_CNT]
+                XCHG    BX,DX
+                MOV     AH,10H
+                AND     [SB_CNT],1              ;18Khz
+                JNZ     .L21
+
+                XOR     AX,AX
+                XCHG    AX,[SB_SUM]
+                SHR     AX,1                    ;18KHz
+                MOV     AH,AL
+.L21:           CALL    SEG_CODE:SB_WRITE_F
+                XCHG    BX,DX
+                JMP     INTR8SND.L0
+

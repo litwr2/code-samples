@@ -1,0 +1,947 @@
+XRESET:         MOV     AX,SEG_ROM - 800H       ;SET ROM MAP
+                MOV     [SA_ROM_LO],AX
+                MOV     [SA_ROM_HI],AX
+                CALL    SEG_CODE:SET_MDATA_SEG_F
+                MOV     BX,0FFFCH               ;USE RESET VECTOR
+                CALL    SEG_CODE:MREAD_DH_F
+                MOV     DL,DH
+                INC     BX
+                CALL    SEG_CODE:MREAD_DH_F
+                MOV     [PC],DX
+                MOV     [CPUOP],FETCHBYTE1
+                CALL    IEC8FLUSH
+                JMP     IEC9FLUSH
+
+INTR23:         PUSH    DS
+                PUSH    AX
+                MOV     AX,SEG_DATA
+                MOV     DS,AX
+                INC     [BREAK_FLAG]
+                POP     AX
+                POP     DS
+                IRET
+
+INTR24:         MOV     AL,3
+                IRET
+
+SET_INTR24:     MOV     AX,3524H        ;SAVE/SET INTR24 VECTOR
+                INT     21H
+                MOV     [SAVE24LO],BX
+                MOV     [SAVE24HI],ES
+                PUSH    DS
+                PUSH    CS
+                POP     DS
+                MOV     DX,INTR24
+.L0:            MOV     AX,2524H
+                INT     21H
+                POP     DS
+                RETN
+
+RESTORE_INTR24: MOV     DX,[SAVE24LO]   ;RESTORE INTR24 VECTOR
+                PUSH    DS
+                MOV     DS,[SAVE24HI]
+                JMP     SET_INTR24.L0
+
+SET_INTR23:     MOV     AX,3523H        ;SAVE/SET INTR23 VECTOR
+                INT     21H
+                MOV     [SAVE23LO],BX
+                MOV     [SAVE23HI],ES
+                PUSH    DS
+                PUSH    CS
+                POP     DS
+                MOV     DX,INTR23
+.L0:            MOV     AX,2523H
+                INT     21H
+                POP     DS
+                RETN
+
+RESTORE_INTR23: MOV     DX,[SAVE23LO]   ;RESTORE INTR23 VECTOR
+                PUSH    DS
+                MOV     DS,[SAVE23HI]
+                JMP     SET_INTR23.L0
+
+RESTORE_PATH:   MOV     DL,[SAVE_FPATH]   ;RESTORE STARTUP PATH & DRIVE
+                MOV     [FPATH],DL
+                MOV     AH,0EH
+                SUB     DL,'A'
+                INT     21H
+
+                MOV     AH,3BH
+                MOV     DX,SAVE_FPATH
+                INT     21H
+                RETN
+
+SAVE_PATH:      MOV     AH,47H          ;SAVE STARTUP PATH & DRIVE
+                MOV     SI,SAVE_FPATH+3
+                XOR     DL,DL
+                INT     21H
+
+                MOV     AH,19H
+                INT     21H
+
+                ADD     AL,41H
+                MOV     [SAVE_FPATH],AL
+                MOV     [FPATH],AL      ;+ SET CURRENT DRIVE LETTER
+                MOV     AX,':\'
+                MOV     WORD [SAVE_FPATH+1],AX
+                MOV     WORD [FPATH+1],AX
+                RETN
+
+LOAD_CFG:       MOV     AX,3D00H                ;IN: DX
+                INT     21H
+                JC      .L6
+
+                MOV     BX,AX
+                MOV     AH,3FH
+                MOV     CX,3
+                MOV     DX,KBD_BUF
+                INT     21H
+
+                MOV     AH,3EH
+                INT     21H
+
+                MOV     AX,WORD [KBD_BUF]
+                MOV     [VIDMODE],AL            ;test with - in msg16!!!
+                MOV     [FRAMESKIP],AH
+                MOV     AL,[KBD_BUF+2]
+                OR      [SJCFG],AL
+.L6:            RETN
+
+SET_CFG:        CALL    SEG_CODE:SET_VMODE_F    ;SET VIDEO MODE
+                CALL    SEG_CODE:EXIT_SND_E_F
+                MOVZX   BX,[SJCFG]
+                AND     BL,3
+                CALL    SEG_CODE:RESET_SND_E_F
+                MOV     AL,[SJCFG]
+                MOV     AH,AL
+                SHR     AL,5
+                SHR     AH,2
+                AND     AH,7
+                MOV     WORD [JOY1_ST],AX
+                JMP     INIT_JOY
+
+FINISHIBM_F:    MOV     BX,1
+                MOV     DH,[CPU_1]
+                OR      DH,8
+                CALL    SEG_CODE:MSTORE_DH_F       ;CLOSE TAPE
+        IF IECDEBUG > 0
+                MOV AH,3EH
+                MOV BX,[XXXFH]
+                INT 21H
+        END IF
+                CALL    IEC8FLUSH
+                CALL    IEC9FLUSH
+                CALL    DEV1DETACH
+                CALL    DEV8DETACH
+                CALL    DEV9DETACH
+
+                XOR     AX,AX           ;RESTORE LED
+                MOV     ES,AX
+                MOV     AL,[ES:417H]
+                AND     AL,0CFH
+                OR      AL,[KBD_FLAGS]
+                MOV     [ES:417H],AL
+                AND     AL,70H
+                MOV     [LED],AL
+                CALL    SEG_CODE:SET_LED_F
+                CALL    RESTORE_INTR9
+                CALL    RESTORE_INTR8
+                CALL    SEG_CODE:EXIT_SND_E_F
+                CALL    RESTORE_INTR24
+                CALL    RESTORE_INTR23
+                CALL    RESTORE_PATH
+
+                MOV     AX,3            ;SET TEXT VIDEO MODE
+                INT     10H
+
+                MOV     EAX,[RETRACE_COUNT]
+                MOV     EDX,11931800/TIMERV
+                MUL     EDX
+                DIV     [SYNCHRO_TICKS]
+                SHL     EDX,1
+                CMP     EDX,[SYNCHRO_TICKS]
+                JB      .L1
+
+                INC     EAX
+.L1:            CALL    HEX2DEC
+                MOV     EAX,DWORD [HEX2DECBUF+6]
+                MOV     WORD [FMSG+44],AX
+                SHR     EAX,16
+                MOV     [FMSG+46],AL
+                MOV     [FMSG+48],AH
+
+                MOV     DX,AMSG         ;OUTPUT AUTHOR'S MESSAGE
+                MOV     AH,9
+                INT     21H
+
+                MOV     DX,FMSG         ;OUTPUT AUTHOR'S MESSAGE
+                MOV     AH,9
+                INT     21H
+                RETF
+
+INITIBM_F:      CLD
+                MOV     AH,30H          ;TEST DOS VERSION
+                INT     21H
+                XCHG    AL,AH
+                CMP     AX,31EH         ;DOS >= 3.30
+                JNC     .L3
+
+                MOV     DX,ERROR1
+                MOV     AH,9
+                INT     21H
+                POP     EAX             ;EXIT!!!
+                RETF
+
+.L3:            XOR     AX,AX           ;TEST MOUSE PRESENCE
+                INT     33H
+                MOV     [ISMOUSE],AL
+
+        IF IECDEBUG > 0
+                MOV AH,3CH
+                MOV CX,20H
+                MOV DX,XXXFN
+                INT 21H
+                MOV [XXXFH],AX
+        END IF
+
+                CALL    SB_ENV
+                CALL    SPARAM
+                XOR     EBX,EBX         ;INIT 32-BIT REGISTERS
+                XOR     ESI,ESI
+                XOR     ECX,ECX
+                XOR     EDI,EDI
+                XOR     ECX,ECX
+                XOR     EBP,EBP
+                CALL    INIT_VIDEO
+                MOV     DX,CFGFILE
+                CALL    LOAD_CFG
+                MOV     AX,SEG_RAM      ;INIT FS
+                MOV     FS,AX
+
+                CALL    SET_INTR23
+                CALL    SET_INTR24
+                CALL    SET_INTR9
+                CALL    SET_INTR8
+                CALL    SB_RESET
+                CALL    SET_CFG
+
+                XOR     SI,SI           ;LOAD ROMs
+                MOV     DI,SEG_ROM
+.L2:            MOV     AX,3D00H
+                IMUL    BX,SI,11
+                LEA     DX,[ROMS_FN+BX]
+                INT     21H
+                JC      .L5
+
+                MOV     BX,AX
+                MOV     AX,4202H
+                XOR     CX,CX
+                XOR     DX,DX
+                INT     21H
+                OR      DX,DX
+                JNZ     .L1
+
+                CMP     AX,16*1024
+                JNZ     .L1
+
+                MOV     AX,4200H
+                INT     21H
+                PUSH    DS
+                MOV     AH,3FH
+                MOV     CX,16*1024
+                XOR     DX,DX
+                MOV     DS,DI
+                INT     21H
+                POP     DS
+.L1:            MOV     AH,3EH
+                INT     21H
+.L5:            INC     SI
+                ADD     DI,400H
+                CMP     SI,9
+                JNZ     .L2
+
+                CALL    SAVE_PATH
+                XOR     AX,AX
+                MOV     ES,AX
+                MOV     AL,[ES:417H]
+                MOV     [KBD_FLAGS],AL
+                AND     [KBD_FLAGS],30H
+                AND     BYTE [ES:417H],0CFH
+                AND     AL,40H
+                JZ      .L4
+
+                AND     [KMATRIX+1],7FH
+.L4:            MOV     [LED],AL
+                CALL    SEG_CODE:SET_LED_F
+
+                MOV     AX,0A000H       ;? Init ES For TED
+                MOV     ES,AX
+
+                MOV     [TOTALTICKS],0
+
+                CALL    GET_DRVS        ;INIT MENUS
+                CALL    GET_FPATH
+                CALL    INIT_WIN1
+                CALL    FILL_IBM_FLIST
+
+                MOV     DI,IOBUF+1              ;PARAMS
+                MOV     AL,[IOBUF]
+                PUSH    AX
+.LP1:           CMP     [IOBUF],0
+                JE      .EXIT
+
+                MOV     BX,[DI+2]
+                MOV     EAX,[BX-4]
+                CMP     EAX,'ROM'
+                JZ      .ROM
+
+                CMP     EAX,'CFG'
+                JZ      .CFG
+
+                CMP     EAX,'VID'
+                JZ      .VID
+
+                CMP     EAX,'SND'
+                JZ      .SND
+
+                SHR     EAX,16
+                CMP     AX,'\'
+                JZ      .DIR
+
+                JMP     .LP3
+
+.CFG:           MOV     DX,[DI]
+                CALL    LOAD_CFG
+                PUSH    DI
+                CALL    SET_CFG
+                POP     DI
+.LP3:           ADD     DI,2
+                DEC     [IOBUF]
+                JMP     .LP1
+
+.VID:           MOV     BX,[DI]
+                MOVZX   DX,BYTE [BX]
+                CALL    HEX2BIN
+                CMP     AL,0AH
+                JA      .LP3
+
+                ADD     AL,AL
+                MOV     [VIDMODE],AL
+                PUSH    DI
+                CALL    SEG_CODE:SET_VMODE_F
+                POP     DI
+                JMP     .LP3
+
+.SND:           MOV     BX,[DI]
+                MOVZX   DX,BYTE [BX]
+                CALL    HEX2BIN
+                CMP     AL,3
+                JA      .LP3
+
+.SND1:          AND     [SJCFG],0FCH
+                OR      [SJCFG],AL
+                MOVZX   BX,AL
+                PUSH    DI
+                PUSH    BX
+                CALL    SEG_CODE:EXIT_SND_E_F
+                POP     BX
+                CALL    SEG_CODE:RESET_SND_E_F
+                POP     DI
+                JMP     .LP3
+
+.ROM:           MOV     BP,[DI]
+                MOV     BX,4
+                CMP     BYTE [DS:BP],'/'
+                JNZ     .LR2
+
+                MOV     BL,BYTE [DS:BP+1]
+                SUB     BL,'0'
+                JS      .LP3
+
+                CMP     BL,8
+                JA      .LP3
+
+                ADD     WORD [DI],2
+.LR2:           CALL    ADDROM
+                JMP     .LP3
+
+.DIR:           CALL    PREPDPARAM
+                MOV     DL,[DEVDPATH]
+                SUB     DL,'A'
+                MOV     AH,0EH
+                INT     21H
+
+                MOV     BX,[DEVDFNP]
+                MOV     BYTE [BX-1],0
+                PUSH    DI
+                CALL    SET_FPATH
+                CALL    FILL_IBM_FLIST
+                POP     DI
+                JMP     .LP3
+
+.EXIT:          CALL    RESTORE_PATH
+                POP     AX
+                MOV     [IOBUF],AL
+                CALL    GET_FPATH
+                RETF
+
+NPARAM:         CMP     [PARAMF],0
+                JNE     .EXIT
+
+                CMP     [RETRACE_COUNT],10    ;1/5sec
+                JB      .EXIT
+                
+                INC     [PARAMF]
+                MOV     [MAINJUMP],CMDLNJMP
+.EXIT:          RETF
+
+CMDLNJMP_F:     PUSHA
+                PUSH    ES
+                CALL    ADJUST_CPU
+                MOV     DI,IOBUF+1
+.L1:            CMP     [IOBUF],0
+                JE      .EXIT
+
+                MOV     BX,[DI+2]
+                MOV     EAX,[BX-4]
+                CMP     EAX,'PRG'
+                JZ      .PRG
+
+                CMP     AX,'P0'
+                JNZ     .L4
+
+                SHR     EAX,16
+                CMP     AL,'9'
+                JA      .L4
+
+                CMP     AL,'0'
+                JAE     .P0N
+
+.L4:            CMP     EAX,'C2F'
+                JZ      .C2F
+
+                CMP     EAX,'D64'
+                JZ      .D64
+
+                MOV     [DEV1FMT],'T'
+                CMP     EAX,'TAP'
+                JZ      .TAPE
+
+                MOV     [DEV1FMT],'C'
+                CMP     EAX,'CTF'
+                JZ      .TAPE
+
+                SHR     EAX,16
+                CMP     AX,'\'
+                JZ      .DIR
+
+                JMP     .L3
+
+.PRG:           MOV     AX,3D00H
+                MOV     DX,[DI]
+                INT     21H
+                JC      .L3
+
+                MOV     BX,AX
+                MOV     AH,3FH
+                MOV     DX,IOBUF+980
+                MOV     CX,2
+                INT     21H
+
+                MOV     DX,WORD [IOBUF+980]
+.L5:            MOV     AH,3FH
+                MOV     CX,0F500H
+                PUSH    DS
+                PUSH    FS
+                POP     DS
+                INT     21H
+                ADD     AX,DX
+                CMP     AX,1009H
+                JB      .L2
+
+                CMP     AX,0FD00H
+                JAE     .L2
+
+                MOV     [2DH],AX
+                MOV     [2FH],AX
+                MOV     [31H],AX
+                MOV     [9DH],AX
+.L2:            POP     DS
+.L6:            MOV     AH,3EH
+                INT     21H
+
+.L3:            ADD     DI,2
+                DEC     [IOBUF]
+                JMP     .L1
+
+.P0N:           MOV     AX,3D00H
+                MOV     DX,[DI]
+                INT     21H
+                JC      .L3
+
+                MOV     BX,AX
+                MOV     AH,3FH
+                MOV     DX,IOBUF+980
+                MOV     CX,28
+                INT     21H
+
+                MOV     DX,WORD [IOBUF+980+26]
+                JMP     .L5
+
+.C2F:           MOV     AX,3D00H
+                MOV     DX,[DI]
+                INT     21H
+                JC      .L3
+
+                MOV     BX,AX
+                PUSH    AX
+                CALL    ENT_C2F_BODY
+                POP     BX
+                JMP     .L6
+
+.TAPE:          CALL    PREP1PARAM
+                CALL    ADDTAPE
+                JMP     .L3
+
+.D64:           MOV     BP,[DI]
+                CMP     WORD [DS:BP],'/9'
+                JNZ     .LD1
+
+                ADD     WORD [DI],2
+                CALL    PREP9PARAM
+                CALL    ADDDISK9
+                JMP     .L3
+
+.LD1:           CMP     WORD [DS:BP],'/8'
+                JNZ     .LD2
+
+                ADD     WORD [DI],2
+.LD2:           CALL    PREP8PARAM
+                CALL    ADDDISK8
+                JMP     .L3
+
+.DIR:           CALL    PREPDPARAM
+                MOV     DL,[DEVDPATH]
+                SUB     DL,'A'
+                MOV     AH,0EH
+                INT     21H
+
+                MOV     BX,[DEVDFNP]
+                MOV     BYTE [BX-1],0
+                PUSH    DI
+                CALL    SET_FPATH
+                CALL    FILL_IBM_FLIST
+                POP     DI
+                JMP     .L3
+
+.EXIT:          POP     ES
+                MOVZX   BX,[FPATH_LEN]
+                MOV     [FPATH-1+BX],0
+                CALL    SET_FPATH
+                CALL    CPUCYCLE
+                POPA
+                JMP     SEG_CODE:MAIN_ENTRY
+
+                ADDDISC 8
+                ADDDISC 9
+
+ADDROM:         IMUL    SI,BX,400H              ;IN: BX
+                ADD     SI,SEG_ROM
+                MOV     AX,3D00H
+                MOV     DX,[DI]
+                INT     21H
+                JC      .L2
+
+                MOV     BX,AX
+                MOV     AX,4202H
+                XOR     CX,CX
+                XOR     DX,DX
+                INT     21H
+
+                OR      DX,DX
+                JNZ     .L1
+
+                CMP     AX,16*1024
+                JNZ     .L1
+
+                MOV     AX,4200H
+                INT     21H
+
+                PUSH    DS
+                MOV     DS,SI
+                MOV     AH,3FH
+                MOV     CX,16*1024
+                XOR     DX,DX
+                INT     21H
+
+                POP     DS
+.L1:            MOV     AH,3EH
+                INT     21H
+.L2:            RETN
+
+SPARAM:         MOVZX   CX,BYTE [ES:80H]
+                MOV     [IOBUF],CH
+                SUB     CL,1
+                JBE     .EXIT
+
+                XOR     BX,BX
+                MOV     SI,IOBUF+25             ;iobuf - counter
+                MOV     DI,IOBUF+1              ;iobuf+1 - vectors (12)
+.L3:            MOV     [DI],SI                 ;iobuf+25 - fnames
+                INC     [IOBUF]
+.L1:            MOV     AL,[ES:82H+BX]
+                CMP     AL,' '
+                JNZ     .L2
+
+                MOV     [SI],CH
+                DEC     CX
+                JZ      .L4
+
+                ADD     DI,2
+                INC     BX
+                INC     SI
+                JMP     .L3
+
+.L2:            MOV     [SI],AL
+                INC     SI
+                INC     BX
+                LOOP    .L1
+
+                MOV     [SI],CL
+.L4:            INC     SI
+                MOV     [DI+2],SI               ;ENDMARK
+                MOV     BX,WORD [IOBUF+1]
+.L6:            MOV     AL,[BX]
+                CMP     AL,'?'
+                JZ      .PARINFO
+
+                CMP     AL,'a'
+                JB      .L5
+
+                CMP     AL,'z'
+                JA      .L5
+
+                SUB     AL,'a'-'A'
+.L5:            MOV     [BX],AL
+                INC     BX
+                CMP     BX,SI
+                JB      .L6
+
+                RETN
+
+.EXIT:          INC     [PARAMF]
+                RETN
+
+.PARINFO:       MOV     DX,USAGE
+                MOV     AH,9
+                INT     21H
+                MOV     SP,[RESET_SP]
+                RETF
+
+
+SB_ENV:         MOV     AX,[ES:2CH]
+                MOV     GS,AX
+                XOR     SI,SI
+.L3:            CMP     WORD [GS:SI],0
+                JZ      .L1
+
+                CMP     DWORD [GS:SI],'BLAS'
+                JZ      .L2
+
+.L4:            INC     SI
+                JMP     .L3
+
+.L2:            CMP     DWORD [GS:SI+4],'TER='
+                JNZ     .L4
+
+                CMP     WORD [GS:SI+8],'A2'
+                JNZ     .L4
+
+                MOV     AL,[GS:SI+10]
+                SUB     AL,'0'
+                SHL     AL,4
+                ADD     BYTE [DSP_WRITE],AL
+                ;ADD     BYTE [DSP_READ],AL
+                ADD     BYTE [DSP_RESET],AL
+                ;ADD     BYTE [DSP_ST],AL
+                MOV     [M3_MSG17+37],'+'
+                INC     [SB_ST]
+.L1:            RETN
+
+SB_RESET:       CMP     [SB_ST],0
+                JE      .L5
+
+                MOV     DX,[DSP_RESET]
+                MOV     AL,1
+                OUT     DX,AL
+                MOV     AX,WORD [SYNCHRO_TICKS]
+                ADD     AX,2                    ;50microsec
+.L1:            CMP     AX,WORD [SYNCHRO_TICKS]
+                JNE     .L1
+
+                XOR     AX,AX
+                OUT     DX,AL
+                ADD     DL,8
+.L2:            IN      AL,DX
+                TEST    AL,80H
+                JZ      .L2
+
+                SUB     DL,4
+.L3:            IN      AL,DX
+                INC     AH
+                JZ      .L4
+
+                CMP     AL,0AAH
+                JNZ     .L3
+
+.L5:            RETN
+
+.L4:            MOV     [M3_MSG17+37],'-'
+                DEC     [SB_ST]
+                RETN
+
+INIT_VIDEO:     MOV     AX,SEG_VRAM1
+                MOV     ES,AX
+                XOR     DI,DI
+                MOV     AX,4F00H
+                INT     10H
+
+                CMP     AX,4FH
+                JNE     .EXIT
+
+                LFS     BP,[ES:0EH]     ;TO VIDEO MODES LIST
+                TEST    BYTE [ES:0AH],2 ;VGA COMPATIBILITY
+                JE      .VBE
+
+                XOR     BX,BX
+.L6:            IMUL    SI,BX,15
+                MOV     [M3_MSG16+16+SI],' '
+                INC     BX
+                CMP     BL,VBESWITCH
+                JB      .L6
+
+.VBE:           CMP     WORD [ES:4],0           ;VBE VER
+                JE      .EXIT
+
+                MOV     DI,512
+                XOR     BX,BX
+.L3:            PUSH    BP
+                IMUL    SI,BX,15
+.L4:            MOV     CX,[FS:BP]
+                ADD     BP,2
+                CMP     CX,0FFFFH
+                JZ      .L5
+
+                MOV     AX,4F01H
+                INT     10H
+
+                MOV     EAX,[VIDIDS+EBX*4]
+                CMP     EAX,[ES:512+12H]        ;X, Y RES
+                JNZ     .L4
+
+                CMP     BYTE [ES:512+19H],8     ;BITS PER PIXEL
+                JNZ     .L4
+
+                CMP     BYTE [ES:512+1BH],4     ;MEMORY MODEL TYPE
+                JNZ     .L4
+
+                CMP     WORD [ES:512+4],40H     ;WINDOWS GRANULARITY
+                JNZ     .L4
+
+                MOV     EAX,[ES:512+0CH]        ;WINPOS FUNCTION
+                OR      EAX,EAX
+                JZ      .L4
+
+                XCHG    EAX,[VBECSWF]
+                OR      EAX,[VBECSWF]
+                CMP     EAX,[VBECSWF]
+                JNZ     .L4
+
+                MOV     [VBEMODEN+EBX*2],CX     ;MODE #
+                MOV     [M3_MSG16+15*VBESWITCH+16+SI],'+'
+.L5:            POP     BP
+                INC     BX
+                CMP     BL,MAXVIDMODEN-VBESWITCH
+                JB      .L3
+
+.EXIT:          RETN
+
+GET_DRVS:       MOV     AH,19H  ;GET CURRENT DRIVE
+                INT     21H
+                MOV     DL,AL
+
+                MOV     AH,0EH
+                INT     21H
+                MOVZX   CX,AL
+
+                XOR     SI,SI
+                MOV     EDX,'[A:]'
+                MOV     BX,1
+.L3:            MOV     AX,440EH        ;PHANTOM DISK?
+                INT     21H
+                JC      .L1
+
+                OR      AL,AL
+                JZ      .L1
+
+                CMP     AL,BL
+                JNZ     .L2
+
+.L1:            MOV     AX,4408H        ;VALIDATE DRIVE
+                INT     21H             ;REMOVABLE MEDIA?
+                JC      .L6
+
+                OR      AX,AX
+                JZ      .L4
+
+.L6:            MOV     AH,4EH
+                MOV     [TEST_DRV],BL
+                ADD     [TEST_DRV],'@'
+                PUSH    CX
+                PUSH    DX
+                MOV     CX,3FH
+                MOV     DX,TEST_DRV
+                INT     21H
+                POP     DX
+                POP     CX
+                JNC     .L4
+
+                CMP     AX,12H
+                JZ      .L4
+
+.L2:            INC     CH
+                JMP     .L5
+
+.L4:            MOV     DH,BL
+                ADD     DH,64
+                MOV     WORD [IBM_DV_LIST+ESI*2],'  '
+                MOV     DWORD [IBM_FN_LIST+ESI*8],EDX
+                MOV     DWORD [IBM_FN_LIST+ESI*8+4],'    '
+                MOV     [IBM_SZ_LIST+ESI*4],-1
+                INC     SI
+.L5:            INC     BX
+                CMP     BL,CL
+                JBE     .L3
+
+                SUB     BL,CH
+                DEC     BX
+                MOV     [TOT_DRVS],BX
+                RETN
+
+ADDTAPE:        MOV     DX,DEV1PATH
+                MOV     AX,3D02H        ;OPEN FILE, R/W
+                CMP     [DEV1FMT],'C'
+                JNZ     .TAP
+
+                MOV     [DEV1WP],0
+                INT     21H
+                JNC     .L2
+
+                INC     [DEV1WP]
+                MOV     AX,3D00H        ;TRY R/O
+                INT     21H
+                JC      .FAIL
+
+.L2:            MOV     [DEV1FH],AX
+                MOV     BX,AX
+                MOV     AH,3FH
+                MOV     CX,6
+                MOV     DX,DS_FVER
+                INT     21H
+
+.L4:            MOV     AX,4202H
+                XOR     CX,CX
+                XOR     DX,DX
+                INT     21H
+
+                MOV     WORD [DEV1SZ],AX
+                MOV     WORD [DEV1SZ+2],DX
+                RETN
+
+.TAP:           MOV     [DEV1WP],1      ;ALWAYS R/O!
+                INT     21H
+                JNC     .L3
+
+                MOV     AX,3D00H        ;TRY R/O
+                INT     21H
+                JC      .FAIL
+
+.L3:            MOV     [DEV1FH],AX
+                MOV     BX,AX
+                MOV     AH,3FH
+                MOV     CX,20
+                MOV     DX,DS_TAP
+                INT     21H
+
+                XOR     EAX,EAX
+                MOV     [DS_TAPSUM],EAX
+                MOV     [DS_TAPEB],AX
+                MOV     [DS_BUF_PTR],AX
+                MOV     [DS_TAPPM],10H
+                MOV     [DS_TAPF],AL
+                CMP     WORD [DS_TAP+13],2      ;C16 & PAL
+                JZ      .L4
+
+                MOV     AH,3EH
+                INT     21H
+
+.FAIL:          MOV     BX,[DEV1FNP]
+                MOV     BYTE [BX],0
+                RETN
+
+                PARAMC  1
+                PARAMC  8
+                PARAMC  9
+                PARAMC  D
+
+INIT_JOY:       MOV     DX,201H         ;INIT JOYSTICKS
+                OUT     DX,AL
+                MOV     CX,4
+                MOV     [JOY_ST],CH
+                MOV     AH,0FH
+.L2B:           IN      AL,DX
+                AND     AL,AH
+                INC     CX
+                JS      .L2A
+
+                XOR     AL,AH
+                JZ      .L2B
+
+                MOV     BX,CX
+                MOV     SI,CX
+                SHR     BX,1
+                ADD     SI,BX
+                TEST    AL,1
+                JZ      .L2C
+
+                MOV     [JOY1X_LB],BX
+                MOV     [JOY1X_RB],SI
+                OR      [JOY_ST],1
+                AND     AH,0EH
+.L2C:           TEST    AL,2
+                JZ      .L2D
+
+                MOV     [JOY1Y_LB],BX
+                MOV     [JOY1Y_RB],SI
+                OR      [JOY_ST],2
+                AND     AH,0DH
+.L2D:           TEST    AL,4
+                JZ      .L2E
+
+                MOV     [JOY2X_LB],BX
+                MOV     [JOY2X_RB],SI
+                OR      [JOY_ST],4
+                AND     AH,0BH
+.L2E:           TEST    AL,8
+                JZ      .L2F
+
+                MOV     [JOY2Y_LB],BX
+                MOV     [JOY2Y_RB],SI
+                OR      [JOY_ST],8
+                AND     AH,07H
+.L2F:           ADD     CX,12
+                OR      AH,AH
+                JNZ     .L2B
+
+.L2A:           RETN
+

@@ -1,0 +1,347 @@
+IEC_FM64:       CALL    ENT_D64A                ;IN: BX=FH; OUT: BX=POS
+                XOR     BX,BX                   ;USE ALL
+.L0:            CMP     BX,[LIST_CAP2]
+                JAE     .FAIL
+
+                XOR     SI,SI
+                MOVZX   CX,[IEC_CFNL]
+.TESTCHAR:      MOV     AH,[IEC_CFN+SI]
+                CMP     AH,'*'
+                JZ      .MATCH
+
+                IMUL    BP,BX,16
+                MOV     AL,[DS:CBM_FN_LIST+BP+SI]
+                CMP     AL,0A0H
+                JZ      .NEXTENTRY
+
+                INC     SI
+                CMP     AH,'?'
+                JNZ     .L4
+
+                LOOP    .TESTCHAR
+
+.L6:            CMP     SI,16
+                JZ      .MATCH
+
+                CMP     [DS:CBM_FN_LIST+BP+SI],0A0H
+                JZ      .MATCH
+
+.NEXTENTRY:     INC     BX
+                JMP     .L0
+
+.FAIL:          MOV     BX,0FFFFH
+.MATCH:         RETN
+
+.L4:            CMP     AL,AH
+                JNZ     .NEXTENTRY
+
+                LOOP    .TESTCHAR
+                JMP     .L6
+
+IEC_FNCP:       MOV     EAX,DWORD [IBM_FN_LIST+EBX*8]   ;IN: BX
+                MOV     DWORD [IEC_PRGNAME],EAX
+                MOV     EAX,DWORD [IBM_FN_LIST+EBX*8+4]
+                MOV     DWORD [IEC_PRGNAME+4],EAX
+                MOV     EAX,DWORD [IBM_EX_LIST+EBX*2+EBX]
+                MOV     DWORD [IEC_PRGNAME+9],EAX
+                MOV     [IEC_PRGNAME+12],0
+                RETN
+
+IEC_X00PRG:     XOR     SI,SI                   ;USE:CX,SI,AX,DX
+                MOV     DWORD [IEC_PRGNAME],'    '
+                MOV     DWORD [IEC_PRGNAME+4],'    '
+                MOVZX   CX,[IEC_CFNL]
+                CMP     CX,8
+                JBE     .L1
+
+                MOV     CX,8
+.L1:            MOV     AH,[IEC_CFN+SI]
+                CALL    CBM2IBMCNV
+                MOV     [IEC_PRGNAME+SI],AH
+                INC     SI
+                LOOP    .L1
+
+                MOV     AL,[IEC_CFT]
+                MOV     [IEC_PRGNAME+9],AL
+
+IEC_ADJEXT:     MOV     WORD [IEC_PRGNAME+10],'00'
+.L2:            MOV     AH,4EH
+                MOV     CX,21H
+                MOV     DX,IEC_PRGNAME
+                INT     21H
+                JC      .L1
+
+                INC     [IEC_PRGNAME+11]
+                JMP     .L2
+
+.L1:            RETN
+
+IECDSSET:       MOVZX   EAX,CL
+                CALL    HEX2DEC
+                MOV     AX,WORD [HEX2DECBUF+8]
+                CMP     AL,' '
+                JNZ     .L4
+
+                MOV     AL,'0'
+.L4:            MOV     WORD [IECDS+1],AX
+                MOVZX   EAX,CH
+                CALL    HEX2DEC
+                MOV     AX,WORD [HEX2DECBUF+8]
+                CMP     AL,' '
+                JNZ     .L5
+
+                MOV     AL,'0'
+.L5:            MOV     WORD [IECDS+4],AX
+                RETN
+
+IEC_NEW:        XOR     DI,DI
+                CALL    IEC_FM
+.L3:            OR      BX,BX
+                JZ      .L1
+
+                CALL    IEC_FNCP
+                MOV     DX,IEC_PRGNAME
+                MOV     AH,41H
+                INT     21H
+                JC      .L5
+
+                INC     DI
+.L5:            INC     BX
+                CALL    IEC_FM.L0
+                JMP     .L3
+
+.L1:            OR      DI,DI
+                JNZ     FILL_IBM_FLIST
+
+                RETN
+
+IEC_CFN2CFN:    XOR     BX,BX
+.L3:            CMP     BL,[IEC_CFNL]   ;CFN2 <-> CFN
+                JB      .L1
+
+                CMP     BL,[IEC_CFN2L]
+                JAE     .L2
+
+.L1:            MOV     AL,[IEC_CFN+BX]
+                XCHG    AL,[IEC_CFN2+BX]
+                MOV     [IEC_CFN+BX],AL
+                INC     BX
+                JMP     .L3
+
+.L2:            MOV     AL,[IEC_CFNL]
+                XCHG    AL,[IEC_CFN2L]
+                MOV     [IEC_CFNL],AL
+                RETN
+
+IEC_FDFI:       MOV     AH,36H          ;FREE DISK SPACE
+                MOV     DL,[FPATH]      ;OUT: AX; USED: DX,BX,CX
+                SUB     DL,64
+                INT     21H
+                SHR     CX,8
+                MUL     BX
+                OR      DX,DX
+                JNZ     .L1
+
+                MUL     CX
+                OR      DX,DX
+                JZ      .L2
+
+.L1:            MOV     AX,0FFFFH
+.L2:            RETN
+
+IEC_FM:         MOV     BX,[TOT_DRVS]           ;USE: SI,CX,BP,DX,BX
+.L0:            CMP     BX,[LIST_CAP1]
+                JAE     .FAIL
+
+                MOV     EAX,[IBM_SZ_LIST+EBX*4]
+                OR      EAX,EAX
+                JE      .NEXTENTRY
+
+                INC     EAX
+                JE      .NEXTENTRY
+
+                MOV     DX,WORD [IBM_EX_LIST+EBX*2+EBX]
+                CMP     DX,'PR'
+                JZ      .L7
+
+                CMP     DX,'P0'
+                JZ      .L7
+
+                CMP     DX,'D0'
+                JZ      .L7
+
+                CMP     DX,'U0'
+                JZ      .L7
+
+                CMP     DX,'S0'
+                JZ      .L7
+
+                CMP     DX,'R0'
+                JNZ     .NEXTENTRY
+
+.L7:            XOR     SI,SI
+                MOVZX   CX,[IEC_CFNL]
+.TESTCHAR:      MOV     AH,[IEC_CFN+SI]
+                CMP     AH,'*'
+                JZ      .MATCH
+
+                CMP     DH,'0'          ;X00?
+                JNZ     .L2
+
+                IMUL    BP,BX,24
+                MOV     AL,[DS:IBM_CI_LIST+BP+SI]
+                CMP     AL,0A0H
+                JZ      .NEXTENTRY
+
+                JMP     .L1
+
+.L2:            CMP     SI,8
+                JE      .NEXTENTRY
+
+                MOV     AL,[IBM_FN_LIST+EBX*8+ESI]
+                CMP     AL,' '
+                JZ      .NEXTENTRY
+
+                CALL    CBM2IBMCNV
+.L1:            INC     SI
+                CMP     AH,'?'
+                JNZ     .L4
+
+                LOOP    .TESTCHAR
+.L6:            CMP     DH,'0'
+                JZ      .L5
+
+                CMP     SI,8
+                JZ      .MATCH
+
+                CMP     [IBM_FN_LIST+EBX*8+ESI],' '
+                JZ      .MATCH
+
+                JMP     .NEXTENTRY
+
+.L5:            CMP     SI,16
+                JZ      .MATCH
+
+                CMP     [DS:IBM_CI_LIST+BP+SI],0A0H
+                JZ      .MATCH
+
+.NEXTENTRY:     INC     BX
+                JMP     .L0
+
+.FAIL:          SUB     BX,BX
+.MATCH:         RETN
+
+.L4:            CMP     AL,AH
+                JNZ     .NEXTENTRY
+
+                LOOP    .TESTCHAR
+                JMP     .L6
+
+IEC_DIRM:       XOR     SI,SI                   ;IN: BX,CX; USE: SI,DX,AX
+                MOVZX   DX,[IEC_CFNL]           ;OUT: CX
+                OR      DX,DX
+                JZ      .MATCH
+
+.L3:            CMP     SI,DX
+                JAE     .L4
+
+                MOV     AH,[IEC_CFN+SI]
+                CMP     AH,'*'
+                JZ      .MATCH
+
+                CMP     CX,'PR'
+                JZ      .L1
+
+                PUSH    BX
+                IMUL    BX,BX,24
+                MOV     AL,[IBM_CI_LIST+BX+SI]
+                POP     BX
+                CMP     AL,0A0H
+                JNZ     .L2
+
+.FAIL:          RETN
+
+.L1:            MOV     AL,[IBM_FN_LIST+EBX*8+ESI]
+                CMP     AL,' '
+                JZ      .FAIL
+
+                CALL    CBM2IBMCNV
+.L2:            INC     SI
+                CMP     AH,'?'
+                JZ      .L3
+
+                CMP     AL,AH
+                JZ      .L3
+
+                RETN
+
+.L4:            CMP     CX,'PR'
+                JZ      .L6
+
+                CMP     SI,16
+                JZ      .MATCH
+
+                PUSH    BX
+                IMUL    BX,BX,24
+                CMP     [IBM_CI_LIST+BX+SI],0A0H
+                POP     BX
+                JZ      .MATCH
+
+                RETN
+
+.L6:            CMP     SI,8
+                JZ      .MATCH
+
+                CMP     [IBM_FN_LIST+EBX*8+ESI],' '
+                JNZ     .FAIL
+
+.MATCH:         XOR     CX,CX
+                RETN
+
+IEC_DIRM64:     XOR     SI,SI                   ;IN: BX,CX; USE: SI,DX,AX
+                MOVZX   DX,[IEC_CFNL]           ;OUT: CX
+                OR      DX,DX
+                JZ      .MATCH
+
+.L3:            CMP     SI,DX
+                JAE     .L4
+
+                MOV     AH,[IEC_CFN+SI]
+                CMP     AH,'*'
+                JZ      .MATCH
+
+                PUSH    BX
+                SHL     BX,4
+                MOV     AL,[CBM_FN_LIST+BX+SI]
+                POP     BX
+                CMP     AL,0A0H
+                JNZ     .L2
+
+.FAIL:          RETN
+
+.L2:            INC     SI
+                CMP     AH,'?'
+                JZ      .L3
+
+                CMP     AL,AH
+                JZ      .L3
+
+                RETN
+
+.L4:            CMP     SI,16
+                JZ      .MATCH
+
+                PUSH    BX
+                SHL     BX,4
+                CMP     [CBM_FN_LIST+BX+SI],0A0H
+                POP     BX
+                JZ      .MATCH
+
+                RETN
+
+.MATCH:         XOR     CX,CX
+                RETN
+
+
+                DRIVEC  8
+                DRIVEC  9

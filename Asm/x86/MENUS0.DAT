@@ -1,0 +1,29 @@
+SAVE_FPATH      RB      127
+ISMOUSE         DB      0
+TOT_DRVS        DW      ?               ;total drives
+M0_MSG1         DB      'DIRECTORY OVERFLOWED - SOME ENTRIES MISSED! '
+SCROLL_TOP_X    EQU     64
+SCROLL_TOP_Y    EQU     2
+SCROLL_TXT      DB      'ÉÍÍÍÍ»'
+                DB      'ºHomeº'
+                DB      'ÇÄÄÄÄ¶'
+                DB      'ºPageº'
+                DB      'º Up º'
+                DB      'ÇÄÄÄÄ¶'
+                DB      'º    º'
+                DB      'º Up º'
+                DB      'º    º'
+                DB      'ÇÄÄÄÄ¶'
+                DB      'º    º'
+                DB      'ºDownº'
+                DB      'º    º'
+                DB      'ÇÄÄÄÄ¶'
+                DB      'ºPageº'
+                DB      'ºDownº'
+                DB      'ÇÄÄÄÄ¶'
+                DB      'º Endº'
+                DB      'ÈÍÍÍÍ¼'
+HEX2DECBUF      RB      12
+FILENAMEBUF     RB      12
+                DB      0
+

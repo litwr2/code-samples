@@ -1,0 +1,37 @@
+MENUS_ENTRY:    JMP     SEG_CODEX:MENUS_ENTRY_F
+
+DEBUG_ENTRY:    JMP     SEG_CODEX:DEBUG_ENTRY_F
+
+CMDLNJMP:       JMP     SEG_CODEX:CMDLNJMP_F
+
+MSTORE_DH_F:    CALL    MSTORE_DH
+                RETF
+
+MREAD_DH_F:     CALL    MREAD_DH
+                RETF
+
+SET_LED_F:      CALL    SET_LED
+                RETF
+
+RELOAD_SND_F:   CALL    RELOAD_SND
+                RETF
+
+SET_VMODE_F:    CALL    SET_VMODE
+                RETF
+
+SB_WRITE_F:     CALL    SB_WRITE
+                RETF
+
+TED_FAR:        CALL    TED0
+                RETF
+
+SET_MDATA_SEG_F:
+                CALL    SET_MDATA_SEG
+                RETF
+
+SAVEVIDJMP_F:   CALL    [SAVEVIDJMP+SI]
+                RETF
+
+RESTVIDJMP_F:   CALL    [RESTVIDJMP+SI]
+                RETF
+

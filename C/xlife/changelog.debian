@@ -1,0 +1,161 @@
+xlife (5.0-8) unstable; urgency=low
+
+  [ Barry deFreese ]
+  * Take over maintenance of package.
+    + Approved by current maintainer.
+  * Bump debhelper build-dep to 5.
+  * Move DH_COMPAT to debian/compat and set to 5.
+  * Bump Standards Version to 3.7.3. (No changes needed).
+  * Remove unused xlife.undocumented file.
+  * Make clean not ignore errors.
+  * Remove generated Makefile in clean.
+  * Replace 'pwd' with $(CURDIR) in rules.
+  * Add quilt patch system.
+  * Remove xlibs-dev build-dependency and add libxext-dev.
+  * 10_imakefile.diff - path and build target updates.
+  * 20_old_patches_1.diff - old source changes. 
+  * 30_old_patches_2.diff - old source changes wireworld dir.
+  * 40_manpages.diff - Fix minus used as hyphens and unknown vars.
+
+ -- Barry deFreese <bddebian@comcast.net>  Sat, 01 Mar 2008 15:02:33 -0500
+
+xlife (5.0-7) unstable; urgency=low
+
+  * Updates for X11R7
+  * Update standards version
+  * New upstream url for xlife
+
+  * Upload sponsored by René van Bevern <rvb@debian.org>
+  
+ -- Goswin von Brederlow <brederlo@informatik.uni-tuebingen.de>  Fri, 12 May 2006 16:48:21 +0200
+
+xlife (5.0-6) unstable; urgency=low
+
+  The 'I have an etch to scratch' release:
+  * Acknowledge NMU (should have been sponsored upload)
+  * Adjust Build-Depends for split X libs
+  * Increase DH_COMPAT to 4
+  * Add -W for CFLAGS
+    - Fix comparison between signed and unsigned
+    - Fix may be used uninitialized
+    - Fix unused parameter
+    - Fix type defaults to 'int
+  * xlife.man: indent example for Owner
+  * Add typos patch from A Costa <agcosta@gis.net> (Closes: #302510)
+
+ -- Goswin von Brederlow <brederlo@informatik.uni-tuebingen.de>  Thu,  8 Dec 2005 10:21:52 +0000
+
+xlife (5.0-5.1) unstable; urgency=low
+
+  * Non-Maintainer Upload (BSP 2005-08-07).
+  * Fixed FTBFS with gcc 3.4 / 4.0 by applying patch from
+    Andreas Jochens (Closes: #260847).
+
+ -- Uwe Hermann <uwe@debian.org>  Sun,  7 Aug 2005 00:14:15 +0200
+
+xlife (5.0-5) unstable; urgency=low
+
+  * Fixed FTBFS with gcc-3.3 [similar to patch by Heine Larsen]
+    (closes: #196322)
+  * Fixed: warning: extra tokens at end of #endif directive
+    [similar to patch by Heine Larsen]
+  * Changed menu-item
+  * new email address, bug reports will reach me once again
+
+ -- Goswin von Brederlow <brederlo@informatik.uni-tuebingen.de>  Wed,  6 Aug 2003 05:18:50 +0200
+
+xlife (5.0-4.3) unstable; urgency=low
+
+  * NMU with maintainers permission
+  * Added two man pages to fix compilation problems (Closes: #162865)
+  
+ -- Julien LEMOINE <speedblue@debian.org>  Fri, 28 Feb 2003 18:28:23 +0100
+
+xlife (5.0-4.2) unstable; urgency=low
+
+  * Made a mistake in my last NMU. Really sorry everybody.
+  * debian/control: corrected typo in build-depends
+  * debian/control: changed priority to match override file
+
+ -- Edward Betts <edward@debian.org>  Wed, 25 Apr 2001 02:24:53 -0600
+
+xlife (5.0-4.1) unstable; urgency=low
+
+  * NMU with maintainers permission
+  * debian/control: added xutils to Build-Depends (Closes: Bug#81781)
+  * debian/control: Standards-Version updated to 3.5.2
+  * debian/docs: INSTALL removed (fixes lintian warning)
+  * debian/rules: DEB_BUILD_OPTIONS support added
+  * debian/rules: dh_testversion removed
+  * debian/rules: dh_suidregister removed
+  * debian/rules: s/make/$(MAKE)/
+  * debian/rules: changed to dh_installman
+  * debian/rules: changed to DH_COMPAT=3
+
+ -- Edward Betts <edward@debian.org>  Fri, 20 Apr 2001 20:56:08 -0600
+
+xlife (5.0-4) unstable; urgency=low
+
+  * added versioned build-debends for debhelper.
+      Closes: Bug#79501
+  * adopted the package in debian/copyright
+
+ -- Goswin Brederlow <goswin.brederlow@student.uni-tuebingen.de>  Mon, 1 Jan 2001 18:45:17 +0200
+
+xlife (5.0-3) unstable; urgency=low
+
+  * new maintainer.
+  * added wireworld-4 directory working with the 4 Neighbourhood present.
+      Closes: Bug#23160
+  * original wireworld left till 8 Neighbourhood works.
+  * code cleanup, lots of warnings removed.
+
+ -- Goswin Brederlow <goswin.brederlow@student.uni-tuebingen.de>  Sun, 29 Oct 2000 22:12:23 +0200
+
+xlife (5.0-2) frozen unstable; urgency=low
+
+  * Adopted the package.
+  * Added a menu item for xlife.
+  * Shrank the .diff.gz by removing extra man pages.
+
+ -- Edward Betts <edward@debian.org>  Sun, 20 Feb 2000 12:02:07 +0000
+
+xlife (5.0-1.3) frozen unstable; urgency=low
+
+  * I got the Build-Depends line wrong in my last NMU.
+      Closes: Bug#58231, Bug#58425, Bug#58255
+  * Added patch from Brederlow <goswin.brederlow@student.uni-tuebingen.de>.
+      Closes: Bug#23159
+  * Filed a bug for the missing man pages, and linked them to undocumented(7).
+
+ -- Edward Betts <edward@debian.org>  Sat, 19 Feb 2000 14:14:50 +0000
+
+xlife (5.0-1.2) frozen unstable; urgency=low
+
+  * Maintainer sanctioned NMU.
+  * Recompiled against libncurses5, removes the last dependance in Debian on
+    ncurses3.4.
+  * Updated to Standards-Version: 3.1.1
+  * Reduced lintian bugs to:
+        E: xlife: binary-without-manpage collect
+        E: xlife: binary-without-manpage lifesearchdumb
+
+ -- Edward Betts <edward@debian.org>  Sun, 13 Feb 2000 15:10:11 +0000
+
+xlife (5.0-1.1) unstable; urgency=low
+
+  * Non-maintainer release.
+  * Libc6 compile.
+
+ -- Martin Mitchell <martin@debian.org>  Wed, 22 Oct 1997 12:54:28 +1000
+
+xlife (5.0-1) unstable; urgency=low
+
+  * Initial release of this upstream version.
+  * Imakefile: XLIFEPATSDIR = /usr/doc/xlife/examples not /usr/local/lib/xlife
+  * Imakefile: "-ltermcap" removed from link for lifesearch
+  * Manual pages: *.man renamed to *.6 so debstd finds them
+
+ -- Dave Holland <93djh2@eng.cam.ac.uk>  Thu, 5 Dec 1996 13:32:07 +0000
+
+

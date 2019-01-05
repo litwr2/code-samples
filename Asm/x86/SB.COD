@@ -1,0 +1,23 @@
+SB_WRITE:       MOV     DX,[DSP_WRITE]  ;AH->[DX]
+.L1:            IN      AL,DX           ;USE AX,DX
+                TEST    AL,80H
+                JNZ     .L1
+
+                MOV     AL,AH
+                OUT     DX,AL
+                RETN
+
+INIT_SB:        MOV     [SB_CNT],0
+                INC     [SB_SOUND]
+                MOV     AH,0D1H
+                JMP     SB_WRITE
+
+EXIT_SB:        MOV     [SB_SOUND],0
+                TEST    [SB_CNT],1
+                JZ      .L1
+
+                XOR     AH,AH
+                CALL    SB_WRITE
+.L1:            MOV     AH,0D3H
+                JMP     SB_WRITE
+

@@ -1,0 +1,31 @@
+VBESWITCH       EQU     6       ;0-5 - VGA, 6 - SVGA, 7-A - VBE
+MAXVIDMODEN     EQU     10
+
+VIDCJMP         DW      0
+VIDJUMP         DW      VGA320x200o, VGA320x240o, VGA320x240o, VGA320x240o
+                DW      VGA360x240o, VGA360x240o, SVGA400x300o, VGA320x200o
+                DW      VBE400x300o, VBE640x400o, VBE640x400o
+                DW      VGA320x200o, VGA320x240od, VGA320x400od, VGA320x400od
+                DW      VGA360x240od, VGA360x400od, SVGA400x300od, VGA320x200o
+                DW      VBE400x300od, VBE640x400od, VBE640x400od
+
+VIDINIJUMP      DW      VGA320x200i, VGA320x240i, VGA320x350i, VGA320x400i
+                DW      VGA360x240i, VGA360x400i, SVGA400x300i, VBE320x200i
+                DW      VBE400x300i, VBE640x400i, VBE640x480i
+
+SAVEVIDJMP      DW      VGA320x200s, VGA320x240s, VGA320x400s, VGA320x400s
+                DW      VGA360x240s, VGA360x400s, SVGA400x300s, VGA320x200s
+                DW      VBE400x300s, VBE640x400s, VBE640x400s
+
+RESTVIDJMP      DW      VGA320x200r, VGA320x240r, VGA320x400r, VGA320x400r
+                DW      VGA360x240r, VGA360x400s, SVGA400x300r, VGA320x200r
+                DW      VBE400x300r, VBE640x400r, VBE640x400r
+
+VIDVRETRACE     DW      VGAVRETRACE
+VBEMODEN        DW      0, 0, 0, 0
+
+                ALIGN   4
+VBECSWF         DD      0
+
+VBECURBANK      DB      0
+

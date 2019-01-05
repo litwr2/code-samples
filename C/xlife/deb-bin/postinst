@@ -1,0 +1,5 @@
+#!/bin/sh -e
+
+sed 1s!GAWKPATH!$(which gawk)! /usr/bin/table2r >/usr/bin/table2r.script
+mv -f /usr/bin/table2r.script /usr/bin/table2r
+chmod 755 /usr/bin/table2r

@@ -1,0 +1,115 @@
+Changes to 3.5
+
+	* improved user interface
+	
+	* box a region and manipulate inside
+
+	* subpixel resolution upto boxsize per pixel
+
+			jon (jb7m+@andrew.cmu.edu)
+			dan (dl2n+@andrew.cmu.edu)
+
+Changes to 5.1:
+	* Release button binding was wrong, this broke tentative-pattern
+	  rotation under some circumstances.  
+
+	* The old #I format has been retired.  It is in the process of being
+	  redesigned.
+
+	* The 'h' command was broken in 5.0.  It has been fixed.
+
+Changes to 5.2 (ESR's reconciliation with Achim Flammenkamp's 3.5/3.6 branch):
+	* coordinate display enhanced to show scale factor.
+
+	* Transplanted 3.6 code for `RUNLENGTH' file format; this still
+	  needs to be documented on the manual page.
+
+	* I have changed my '!' to Achim's '%', swiped his '!' code and
+	  included it.  My version prompts for a percentage density.
+
+	* Switched to Achim's `%' code and random-number generator, added `^'.
+
+	* Changed undocumented 'B' to '@' and documented it.
+
+	* Adapted Achim's code and documentation for (, ), [, ], {, }, <, >,
+	  J, L, 0, n, i, $.
+
+	* Achim's `a' is my new 'B' (I'm already using `a' for a multistate
+	  command).
+
+	* Achim's `*' is replaced by new logic for `%' which checks for a
+	  select box and, if one is present, only randomizes the interior.
+
+	* Achim's 't' is my `p'; I've moved my `p' to '&'.
+
+	* The following 3.6 commands have been dropped: TAB (basically
+	  redundant with `o').  Also the `b', `d', `T', `M', and ESC 
+	  commands (redundant with the 5.x boxing interface).
+
+	* Achim's `u' has been re-implemented, but doesn't undo generate 
+	  steps.
+
+	* Added Achim's "D" format.
+
+	* Achim's support for sub-pixel resolution.
+
+	* Achim's `~' command, mode 2 (changed cells only).
+
+        (And the following changes, which aren't Achim's:)
+
+	* Various preferences can now be set from X resources.
+
+	* Incorporate the new 3.5 version of lifesrc
+
+	* Boxes are now colored, with settable resources for the
+	  selection, load, and transition boxes.  The pivot should now be
+          visible in the same color as the box,
+
+	* `*' toggles pseudocolor display of two-state automata in a way that
+	  highlights births and deaths.
+
+	* All structured patterns have been reconciled with the new #P format.
+	  The oldinclude directory is gone.
+
+	* The pattern_editing document has been merged into the man page.
+
+	* The entire Hensel archive as of 21 Dec 1997 has been incorporated
+          into our Life pattern directory.
+
+	* Saved patterns now include a file format identifier a la Hensel.
+
+	* The A and V commands now operate on the tentative pattern
+	  if there is one; thus it is now possible to view the comments
+	  in a pattern library file from within Xlife.
+
+	* Attempting to `l' a directory now gives you a listing of the
+	  directory (implementation concept swiped from Achim; this 
+	  is functionally equivalent to his `F' command).
+
+	* New autoPlace feature makes loading large patterns easier.
+
+Changes to 5.3 (Reconciliation with 3.5/3.6, next step):
+	* #T directive implemented, analogous to #U for 2-state patterns.
+
+	* The mesh toggle is now `M'; `L' has been swiped for use as a
+	  re-load command.
+
+	* Pattern-selection has a new wireframe option; in this mode there
+	  is no bounding box, instead  we use open rectangles in the load 
+	  box color to draw the tentative pattern.  
+
+	* Mesh drawing has been changed, reference grid is now distinguished
+	  by color rather than line thickness.
+
+	* Lifecollect has been merged into lifeconv, which no longer has
+	  pattern-size limits and can now convert to any pattern format
+	  that Xlife knows.
+
+	* Introduced S and I save formats for `S' command.  `I' save format
+	  now does a full scene analysis including checking for all rotations
+	  and reflections of repeated primitive patterns, and recognition
+	  of a user-configurable set of named patterns.
+
+	* Patterns now load much faster using an internal dictionary.
+
+	* #L can be used to put labels in tentative patterns.

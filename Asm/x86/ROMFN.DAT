@@ -1,0 +1,10 @@
+ROMS_FN         DB      'BASIC .ROM',0
+                DB      'KERNAL.ROM',0
+                DB      '3P1_LO.ROM',0
+                DB      '3P1_HI.ROM',0
+                DB      'C1_LO .ROM',0
+                DB      'C1_HI .ROM',0
+                DB      'C2_LO .ROM',0
+                DB      'C2_HI .ROM',0
+                DB      'C1551 .ROM',0
+

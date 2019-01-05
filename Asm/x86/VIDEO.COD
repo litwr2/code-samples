@@ -1,0 +1,908 @@
+VBESWBANK:      MOV     [VBECURBANK],DL         ;IN: DX
+.L0:            XOR     BX,BX
+                CALL    DWORD [VBECSWF]
+                INC     BX
+                CALL    DWORD [VBECSWF]
+                RETN
+
+VBE400x300o:    LES     DI,[BEAM_ADDR]  ;400(368)x300(288)
+                ADD     DI,16
+                MOV     SI,VIDEO_DATA
+                MOV     CX,92
+                ADD     [BEAM_POS],400
+                JC      .L1
+
+                REP MOVSD
+                RETN
+
+.L1:            MOV     BP,[BEAM_POS]
+                JZ      .L4
+
+                SUB     BP,16
+.L4:            SHR     BP,2
+                SUB     CX,BP
+                REP MOVSD
+                MOV     DX,1
+                CALL    VBESWBANK
+                OR      CX,BP
+                REP MOVSD
+                RETN
+
+VBE640x400o:    LES     DI,[BEAM_ADDR]  ;6400(368)x400(288)/480
+                ADD     DI,136
+                MOV     SI,VIDEO_DATA
+                MOV     CX,92
+                ADD     [BEAM_POS],640
+                JC      .L1
+
+                REP MOVSD
+                RETN
+
+.L1:            MOV     BP,CX
+                CMP     [BEAM_POS],512
+                JZ      .L4
+
+                MOV     BP,248/4
+                CMP     [BEAM_POS],384
+                JZ      .L4
+
+                MOV     BP,120/4
+                CMP     [BEAM_POS],256
+                JZ      .L4
+
+                XOR     BP,BP
+.L4:            SUB     CX,BP
+                REP MOVSD
+                MOVZX   DX,[VBECURBANK]
+                INC     DX
+                CALL    VBESWBANK
+                MOV     CX,BP
+                REP MOVSD
+                RETN
+
+VGAplao:        OUT     DX,AX           ;3C4.2<-
+.L0:            MOV     AL,[SI+12]
+                MOV     AH,[SI+8]
+                BSWAP   EAX
+                MOV     AH,[SI+4]
+                LODSB
+                STOSD
+                ADD     SI,15
+                LOOP    .L0
+                RETN
+
+SVGA400x300o:   MOV     DX,3C4H         ;400(368)x300(288)
+                MOV     AX,102H
+                MOV     CX,23
+                LES     DI,[BEAM_ADDR]
+                ADD     DI,4
+                MOV     SI,VIDEO_DATA
+                CALL    VGAplao
+
+                MOV     AX,202H
+                MOV     CL,23
+                SUB     DI,92
+                MOV     SI,VIDEO_DATA+1
+                CALL    VGAplao
+
+                MOV     AX,402H
+                MOV     CL,23
+                SUB     DI,92
+                MOV     SI,VIDEO_DATA+2
+                CALL    VGAplao
+
+                MOV     AX,802H
+                MOV     CL,23
+                SUB     DI,92
+                MOV     SI,VIDEO_DATA+3
+                CALL    VGAplao
+
+                ADD     [BEAM_POS],100
+                RETN
+
+VGA360x240o:    MOV     DX,3C4H         ;360(352)x240/400(288)
+                MOV     AX,102H
+                MOV     CX,22
+                LES     DI,[BEAM_ADDR]
+                INC     DI
+                MOV     SI,VIDEO_DATA
+                CALL    VGAplao
+                
+                MOV     AX,202H
+                MOV     CL,22
+                SUB     DI,88
+                MOV     SI,VIDEO_DATA+1
+                CALL    VGAplao
+
+                MOV     AX,402H
+                MOV     CL,22
+                SUB     DI,88
+                MOV     SI,VIDEO_DATA+2
+                CALL    VGAplao
+
+                MOV     AX,802H
+                MOV     CL,22
+                SUB     DI,88
+                MOV     SI,VIDEO_DATA+3
+                CALL    VGAplao
+
+                ADD     [BEAM_POS],90
+                RETN
+
+VGA320x240o:    MOV     DX,3C4H         ;320x240/350/400
+                LES     DI,[BEAM_ADDR]
+                MOV     AX,102H
+                MOV     CX,20
+                MOV     SI,VIDEO_DATA
+                CALL    VGAplao
+
+                MOV     AX,202H
+                MOV     CL,20
+                SUB     DI,80
+                MOV     SI,VIDEO_DATA+1
+                CALL    VGAplao
+
+                MOV     AX,402H
+                MOV     CL,20
+                SUB     DI,80
+                MOV     SI,VIDEO_DATA+2
+                CALL    VGAplao
+
+                MOV     AX,802H
+                MOV     CL,20
+                SUB     DI,80
+                MOV     SI,VIDEO_DATA+3
+                CALL    VGAplao
+
+                ADD     [BEAM_POS],80
+                RETN
+
+VGA320x200o:    LES     DI,[BEAM_ADDR]  ;320x200/VBE
+                MOV     SI,VIDEO_DATA
+                MOV     CX,80
+                REP MOVSD
+                ADD     [BEAM_POS],320
+                RETN
+
+VBE400x300od:   MOV     BX,400          ;400(368)x300(288)
+                MOV     CX,92
+
+VBEod:          MOV     AX,65536/4      ;IN: BX - LINE LENGTH TOTAL
+                XOR     DX,DX           ;    CX - LINE LENGTH VISIBLE/4
+                DIV     CX
+                MOV     BP,AX
+                LES     AX,[BEAM_ADDR]
+                MOVZX   DX,[VBECURBANK]
+                MOV     SI,VIDEO_DATA
+                ADD     [BEAM_POS],BX
+                JNC     .L1
+
+                INC     [VBECURBANK]
+.L1:            DIV     BX
+                CMP     AX,BP
+                JB      .L2
+
+                SUB     AX,BP
+                MOV     DI,ES
+                XCHG    AX,BP
+                IMUL    CX
+                SHR     AX,2
+                ADD     DI,AX
+                MOV     ES,DI
+                MOV     AX,BP
+.L2:            IMUL    CX
+                IMUL    DI,AX,4
+                REP MOVSD
+                RETN
+
+VBE640x400od:   MOV     BX,640          ;640(368)x400(288)/480
+                MOV     CX,92
+                JMP     VBEod
+
+VGAod_pla:      MOV     BP,BX           ;IN: BX - SIZE OF SAVED VIDEO PLANE
+                SHR     BP,3            ;    CX - Xres/4, SI - XresFULL/4
+                ADD     BP,SEG_VRAM1
+                MOV     AX,[BEAM_POS]
+                ADD     [BEAM_POS],SI
+                XOR     DX,DX
+                MUL     CX
+                DIV     SI
+                MOV     DI,AX
+                MOV     SI,VIDEO_DATA
+                MOV     DX,SEG_VRAM1
+.L0:            MOV     ES,DX
+                LODSW
+                MOV     [ES:DI],AL
+                MOV     [ES:DI+BX],AH
+                MOV     ES,BP
+                LODSW
+                MOV     [ES:DI+BX],AH
+                STOSB
+                LOOP    .L0
+
+                RETN
+
+SVGA400x300od:  MOV     BX,368*288/4    ;400(368)x400(288)
+.L0:            MOV     CX,92
+                MOV     SI,100
+                JMP     VGAod_pla
+                
+VGA360x240od:   MOV     BX,352*240/4    ;360(352)x240
+.L0:            MOV     CX,88
+                MOV     SI,90
+                JMP     VGAod_pla
+
+VGA360x400od:   MOV     BX,352*288/4    ;360(352)x400(288)
+                JMP     VGA360x240od.L0
+
+VGA320x240od:   MOV     BX,320*240/4    ;320x240
+.L0:            MOV     CX,80
+                MOV     SI,CX
+                JMP     VGAod_pla
+
+VGA320x400od:   MOV     BX,320*288/4    ;320x400(288)
+                JMP     VGA320x240od.L0
+
+VGAiX:          MOV     DX,3C4H         ;SETS DX AS 3D4/3B4 = COLOR/MONO !!!
+                MOV     AX,604H
+                OUT     DX,AX           ;3C4.4<-6
+
+                MOV     DX,3CEH
+                MOV     AX,4005H
+                OUT     DX,AX           ;3CE.5<-40
+
+                MOV     AX,506H
+                OUT     DX,AX           ;3CE.6<-5
+
+                XOR     AX,AX
+                MOV     ES,AX
+                MOV     DX,[ES:463H]
+                MOV     AX,14H
+                OUT     DX,AX           ;3D4.14<-0
+
+                MOV     AX,0E317H
+                OUT     DX,AX           ;3D4.17<-E3
+                RETN
+
+READ_VGAR:      OUT     DX,AL           ;IN: AL - REG#, DX - PORT
+                INC     DX              ;OUT: AL
+                IN      AL,DX
+                DEC     DX
+                RETN
+
+WRITE_MOR:      MOV     DX,3C4H         ;IN: BH - MOR VALUE
+                MOV     AX,100H
+                OUT     DX,AX           ;3C4.0<-1
+
+                SUB     DL,2
+                MOV     AL,BH
+                OUT     DX,AL           ;3C2<-E3
+                ADD     DL,2
+
+                MOV     AX,300H
+                OUT     DX,AX           ;3C4.0<-3
+                RETN
+
+VGACRTCen:      MOV     AX,1111H        ;IN: DX=3D4/3B4
+                CALL    READ_VGAR       ;OUT: BX
+                AND     AL,7FH
+                XCHG    AL,AH
+                MOV     BX,AX
+                OUT     DX,AX
+                RETN
+
+VGA240i:        MOV     AX,0B06H
+                OUT     DX,AX           ;3D4.6<-B
+
+                MOV     AX,3E07H
+                OUT     DX,AX           ;3D4.7<-3E
+
+                MOV     AX,4109H
+                OUT     DX,AX           ;3D4.9<-41
+
+                MOV     AX,0EA10H
+                OUT     DX,AX           ;3D4.10<-EA
+
+                MOV     AX,0DF12H
+                OUT     DX,AX           ;3D4.12<-DF
+
+                MOV     AX,0E715H
+                OUT     DX,AX           ;3D4.15<-E7
+
+                MOV     AX,416H
+                OUT     DX,AX           ;3D4.16<-4
+                RETN
+
+VGA360i:        MOV     AX,06B00H
+                OUT     DX,AX           ;3D4.0<-6B
+
+                MOV     AX,5901H
+                OUT     DX,AX           ;3D4.1<-59
+
+                MOV     AX,5A02H
+                OUT     DX,AX           ;3D4.2<-5A
+
+                MOV     AX,08E03H
+                OUT     DX,AX           ;3D4.3<-8E
+
+                MOV     AX,05E04H
+                OUT     DX,AX           ;3D4.4<-5E
+
+                MOV     AX,08A05H
+                OUT     DX,AX           ;3D4.5<-8A
+
+                MOV     AX,2D13H
+                OUT     DX,AX           ;3D4.13<-2D
+                RETN
+
+CLRVRAM:        MOV     AX,VIDEO_SEG    ;CLEAR ALL 64K 4 PLANARS VRAM
+                MOV     ES,AX
+                MOV     DX,3C4H
+                MOV     AX,0F02H        
+                OUT     DX,AX           ;3C4.2<-F
+                XOR     EAX,EAX
+                XOR     DI,DI
+                MOV     CX,65536/4
+                REP     STOSD
+                RETN
+
+VGA320x200i:    MOV     AX,13H
+                INT     10H
+                RETN
+
+VGA320x400i:    CALL    VGA320x200i
+                CLI
+                CALL    VGAiX
+                MOV     AX,4009H
+                OUT     DX,AX           ;3D4.9<-40
+                STI
+                JMP     CLRVRAM
+
+VGA320x240i:    CALL    VGA320x200i
+                CLI
+                MOV     BH,0E3H
+                CALL    WRITE_MOR
+                CALL    VGAiX
+                CALL    VGACRTCen
+                CALL    VGA240i
+                AND     BH,70H          ;VGACRTCdi
+                OR      BH,8CH
+                MOV     AX,BX
+                OUT     DX,AX
+
+                MOV     AX,4109H
+                OUT     DX,AX           ;3D4.9<-41
+                STI
+                JMP     CLRVRAM
+
+VGA360x240i:    CALL    VGA320x200i
+                CLI
+                MOV     BH,0E7H
+                CALL    WRITE_MOR
+                CALL    VGAiX
+                CALL    VGACRTCen
+                CALL    VGA360i
+                CALL    VGA240i
+                AND     BH,70H          ;VGACRTCdi
+                OR      BH,8CH
+                MOV     AX,BX
+                OUT     DX,AX
+
+                MOV     AX,4109H
+                OUT     DX,AX           ;3D4.9<-41
+                STI
+                JMP     CLRVRAM
+
+
+VGA360x400i:    CALL    VGA320x200i
+                CLI
+                MOV     BH,67H
+                CALL    WRITE_MOR
+                CALL    VGAiX
+                CALL    VGACRTCen
+                CALL    VGA360i
+                OR      BH,80H          ;VGACRTCdi
+                MOV     AX,BX
+                OUT     DX,AX
+
+                MOV     AX,4009H
+                OUT     DX,AX           ;3D4.9<-40
+                STI
+                JMP     CLRVRAM
+
+SVGA400x300i:   MOV     AX,6AH
+                INT     10H
+
+                CLI
+                MOV     DX,3C4H
+                MOV     AX,100H
+                OUT     DX,AX           ;3C4.0<-1
+
+                MOV     AX,604H
+                OUT     DX,AX           ;3C4.4<-6
+
+                MOV     DL,0CEH
+                MOV     AX,4005H
+                OUT     DX,AX           ;3CE.5<-40
+
+                XOR     AX,AX
+                MOV     ES,AX
+                MOV     DL,[ES:463H]
+                CALL    VGACRTCen
+
+                MOV     AX,404H
+                CALL    READ_VGAR
+                INC     AX
+                XCHG    AL,AH
+                OUT     DX,AX           ;3D4.4<-
+
+                OR      BH,80H          ;VGACRTCdi
+                MOV     AX,BX
+                OUT     DX,AX           ;3D4.11<-
+
+                MOV     AX,909H
+                CALL    READ_VGAR
+                AND     AL,60H
+                OR      AL,1
+                XCHG    AH,AL
+                OUT     DX,AX           ;3D4.9<-
+
+                ;MOV     AX,3213H
+                ;OUT     DX,AX
+
+                ADD     DL,6
+                IN      AL,DX           ;3DA->
+
+                MOV     DL,0C0H
+                MOV     AL,30H
+                OUT     DX,AL
+                INC     DX
+                IN      AL,DX
+                DEC     DX
+                OR      AL,40H
+                OUT     DX,AL           ;3C0.10<-
+
+                MOV     AL,0FH
+.L1:            OUT     DX,AL
+                OUT     DX,AL
+                DEC     AL
+                JNS     .L1
+
+                MOV     AL,20H
+                OUT     DX,AL
+
+                MOV     DL,0C4H
+                MOV     AX,300H
+                OUT     DX,AX           ;3C4.0<-3
+                STI
+                RETN
+
+VGA320x350i:    MOV     AX,10H
+                INT     10H
+
+                CLI
+                MOV     DX,3C4H
+                MOV     AX,100H
+                OUT     DX,AX           ;3C4.0<-1
+
+                MOV     AX,604H
+                OUT     DX,AX           ;3C4.4<-6
+
+                MOV     DL,0CEH
+                MOV     AX,4005H
+                OUT     DX,AX           ;3CE.5<-40
+
+                XOR     AX,AX
+                MOV     ES,AX
+                MOV     DL,[ES:463H]
+                CALL    VGACRTCen
+
+                MOV     AX,404H
+                CALL    READ_VGAR
+                INC     AX
+                XCHG    AL,AH
+                OUT     DX,AX           ;3D4.4<-
+
+                OR      BH,80H          ;VGACRTCdi
+                MOV     AX,BX
+                OUT     DX,AX           ;3D4.11<-
+
+                ADD     DL,6
+                IN      AL,DX           ;3DA->
+
+                MOV     DL,0C0H
+                MOV     AL,30H
+                OUT     DX,AL
+                INC     DX
+                IN      AL,DX
+                DEC     DX
+                OR      AL,40H
+                OUT     DX,AL           ;3C0.10<-
+
+                MOV     AL,0FH
+.L1:            OUT     DX,AL
+                OUT     DX,AL
+                DEC     AL
+                JNS     .L1
+
+                MOV     AL,20H
+                OUT     DX,AL
+
+                MOV     DL,0C4H
+                MOV     AX,300H
+                OUT     DX,AX           ;3C4.0<-3
+                STI
+                RETN
+
+VBE320x200i:    XOR     DI,DI
+
+VBEi:           MOV     AX,4F02H        ;DI=#*2
+                MOV     BX,[VBEMODEN+DI]
+                INT     10H
+
+                MOVZX   DX,[VBECURBANK]
+                JMP     VBESWBANK
+
+VBE400x300i:    MOV     DI,2
+                JMP     VBEi
+
+VBE640x400i:    MOV     DI,4
+                JMP     VBEi
+
+VBE640x480i:    MOV     DI,6
+                JMP     VBEi
+
+SET_VMODE:      MOVZX   SI,[VIDMODE]            ;SETS SI
+                MOV     AX,[SVVAY+SI]
+                MOV     [SVVA],AX
+                MOV     AX,[EVVAY+SI]
+                MOV     [EVVA],AX
+                MOV     AX,[VIDJUMP+SI]
+                MOV     [VIDCJMP],AX
+                CALL    [VIDINIJUMP+SI]
+                SHR     SI,1
+                MOV     AX,VGAVRETRACE
+                CMP     SI,VBESWITCH
+                JBE     .L1
+
+                MOV     AX,VBEVRETRACE
+.L1:            MOV     [VIDVRETRACE],AX
+                MOV     AL,[SHVAX+SI]
+                MOV     [SHVA],AL
+                MOV     AL,[EHVAX+SI]
+                MOV     [EHVA],AL
+
+                PUSH    DS              ;INIT DAC = SET PALETTE
+                POP     ES
+                XOR     BX,BX
+                MOV     CX,128
+                MOV     AX,1012H
+                MOV     DX,DAC_T
+                INT     10H
+                MOV     BX,CX
+                MOV     AX,1012H
+                INT     10H
+
+                RETN
+
+VGA320x200s:    MOV     AX,SEG_VRAM1
+                MOV     [BEAM_POS+2],AX         ;SET BEAM SEG
+                PUSH    DS
+                MOV     ES,AX                   ;SAVE VRAM
+                MOV     AX,VIDEO_SEG
+                MOV     DS,AX
+                MOV     CX,4000H
+                XOR     SI,SI
+                XOR     DI,DI
+                REP     MOVSD
+                POP     DS
+                RETN
+
+VGAs_plax:      OUT     DX,AX
+                MOV     CX,BP
+                MOVZX   SI,BL
+                PUSH    BX
+.L1:            MOVSD
+                DEC     BH
+                JNZ     .L2
+
+                SHL     BX,1
+                ADD     SI,BX
+                POP     BX
+                PUSH    BX
+.L2:            LOOP    .L1
+
+                POP     BX
+                RETN
+
+VGAs_pla:       PUSH    DS              ;IN: BP - PLANE SIZE/16
+                MOV     AX,SEG_VRAM1    ;    BL - INITIAL OFFSET/4
+                MOV     ES,AX           ;    BH - VISIBLE LINE LENGTH/16
+                MOV     AX,VIDEO_SEG
+                MOV     DS,AX
+
+                MOV     DX,3CEH
+                MOV     AX,4
+                XOR     DI,DI
+                CALL    VGAs_plax
+
+                MOV     AH,1
+                CALL    VGAs_plax
+
+                MOV     CX,ES
+                SHR     BP,1
+                ADD     CX,BP
+                SHL     BP,1
+                MOV     ES,CX
+
+                MOV     AH,2
+                XOR     DI,DI
+                CALL    VGAs_plax
+
+                MOV     AH,3
+                CALL    VGAs_plax
+
+                POP     DS
+                RETN
+
+VGA320x240s:    MOV     BP,320*240/16
+                MOV     BX,1400H
+                JMP     VGAs_pla
+
+VGA320x400s:    MOV     BP,320*288/16
+                MOV     BX,1400H
+                JMP     VGAs_pla
+
+VGA360x240s:    MOV     BP,352*240/16
+                MOV     BX,1601H
+                JMP     VGAs_pla
+
+VGA360x400s:    MOV     BP,352*288/16
+                MOV     BX,1601H
+                JMP     VGAs_pla
+
+SVGA400x300s:   MOV     BP,368*288/16
+                MOV     BX,1704H
+                JMP     VGAs_pla
+
+VBE640x400s:    MOV     BP,368*288/4
+                MOV     BX,5C88H
+                JMP     VBEs
+
+VBE400x300s:    MOV     BP,368*288/4
+                MOV     BX,5C10H
+
+VBEs:           MOV     [BEAM_POS+2],SEG_VRAM1
+                XOR     DX,DX           
+                PUSH    BX              ;IN: BP - MEMSZ, BL - INITIAL OFFSET
+                CALL    VBESWBANK.L0    ;    BH - VISIBLE LINE LENGTH/4
+                POP     BX
+
+                PUSH    DS
+                MOV     AX,SEG_VRAM1
+                MOV     ES,AX                   ;SAVE VRAM
+                XOR     DI,DI
+                MOVZX   SI,BL
+.L5:            MOVZX   CX,BH
+.L1:            MOV     AX,VIDEO_SEG
+                MOV     DS,AX
+                MOVSD
+                OR      SI,SI
+                JNZ     .L2
+
+                POP     DS
+                PUSH    BX
+                INC     DX
+                CALL    VBESWBANK.L0
+                POP     BX
+                PUSH    DS
+.L2:            OR      DI,DI
+                JNZ     .L3
+
+                MOV     AX,ES
+                ADD     AH,10H
+                MOV     ES,AX
+.L3:            LOOP    .L1
+
+                MOVZX   AX,BL
+                SHL     AX,1
+                ADD     SI,AX
+                JNC     .L4
+
+                POP     DS
+                PUSH    BX
+                INC     DX
+                CALL    VBESWBANK.L0
+                POP     BX
+                PUSH    DS
+.L4:            MOVZX   AX,BH
+                SUB     BP,AX
+                JNZ     .L5
+
+                POP     DS
+                RETN
+
+VGAr_plax:      OUT     DX,AX
+                MOV     CX,BP
+                MOVZX   DI,BL
+                PUSH    BX
+.L1:            MOVSD
+                DEC     BH
+                JNZ     .L2
+
+                SHL     BX,1
+                ADD     DI,BX
+                POP     BX
+                PUSH    BX
+.L2:            LOOP    .L1
+
+                POP     BX
+                RETN
+
+VGAr_pla:       PUSH    DS              ;IN: BP - PLANES SIZE/16
+                MOV     AX,SEG_VRAM1    ;    BL - INITIAL OFFSET/4
+                MOV     DS,AX           ;    BH - VISIBLE LINE LENGTH/16
+                MOV     AX,VIDEO_SEG
+                MOV     ES,AX
+
+                MOV     DX,3C4H
+                MOV     AX,102H
+                XOR     SI,SI
+                CALL    VGAr_plax
+
+                MOV     AH,2
+                CALL    VGAr_plax
+
+                MOV     CX,DS
+                SHR     BP,1
+                ADD     CX,BP
+                SHL     BP,1
+                MOV     DS,CX
+
+                MOV     AH,4
+                XOR     SI,SI
+                CALL    VGAr_plax
+
+                MOV     AH,8
+                CALL    VGAr_plax
+
+                POP     DS
+                RETN
+
+VGA320x200r:    CALL    SET_VMODE
+                MOV     AX,VIDEO_SEG
+                MOV     [BEAM_POS+2],AX         ;SET BEAM SEG
+                PUSH    DS                      ;RESTORE VRAM
+                MOV     ES,AX
+                MOV     AX,SEG_VRAM1
+                MOV     DS,AX
+                MOV     CX,4000H
+                XOR     SI,SI
+                XOR     DI,DI
+                REP MOVSD
+                POP     DS
+                RETN
+
+VGA320x240r:    CALL    SET_VMODE
+                MOV     BP,320*240/16
+                MOV     BX,1400H
+                JMP     VGAr_pla
+
+VGA320x400r:    CALL    SET_VMODE
+                CALL    CLRVRAM
+                MOV     BP,320*288/16
+                MOV     BX,1400H
+                JMP     VGAr_pla
+
+VGA360x240r:    CALL    SET_VMODE
+                MOV     BP,352*240/16
+                MOV     BX,1601H
+                JMP     VGAr_pla
+
+VGA360x400r:    CALL    SET_VMODE
+                CALL    CLRVRAM
+                MOV     BP,352*288/16
+                MOV     BX,1601H
+                JMP     VGAr_pla
+
+SVGA400x300r:   CALL    SET_VMODE
+                CALL    CLRVRAM
+                MOV     BP,368*288/16
+                MOV     BX,1704H
+                JMP     VGAr_pla
+
+VBE640x400r:    MOV     BP,368*288/4
+                MOV     BX,5C22H
+                JMP     VBEr
+
+VBE400x300r:    MOV     BP,368*288/4
+                MOV     BX,5C04H
+VBEr:           PUSH    BX              ;IN: BP - MEMSZ, BL - INITIAL OFFSET/4
+                CALL    SET_VMODE       ;    BH - VISIBLE LINE LENGTH/4
+                XOR     DX,DX           
+                CALL    VBESWBANK.L0
+                POP     BX
+
+                PUSH    DS
+                MOV     AX,SEG_VRAM1
+                MOV     DS,AX
+                MOV     AX,VIDEO_SEG
+                MOV     ES,AX
+                XOR     SI,SI
+                XOR     DI,DI
+                MOVZX   CX,BL
+                XOR     EAX,EAX
+                REP STOSD
+.L5:            MOVZX   CX,BH
+.L1:            MOVSD
+                OR      DI,DI
+                JNZ     .L2
+
+                MOV     AX,DS
+                POP     DS
+                PUSH    BX
+                PUSH    AX
+                INC     DX
+                CALL    VBESWBANK.L0
+                POP     AX
+                POP     BX
+                PUSH    DS
+                MOV     DS,AX
+.L2:            OR      SI,SI
+                JNZ     .L3
+
+                MOV     AX,DS
+                ADD     AH,10H
+                MOV     DS,AX
+.L3:            LOOP    .L1
+
+                XOR     AX,AX
+                MOVZX   CX,BL
+                SHL     CX,1
+.L7:            STOSD
+                OR      DI,DI
+                JNZ     .L6
+
+                MOV     AX,DS
+                POP     DS
+                PUSH    BX
+                PUSH    AX
+                INC     DX
+                CALL    VBESWBANK.L0
+                POP     AX
+                POP     BX
+                PUSH    DS
+                MOV     DS,AX
+                XOR     AX,AX
+.L6:            LOOP    .L7
+
+.L4:            MOVZX   AX,BH
+                SUB     BP,AX
+                JNZ     .L5
+
+                POP     DS
+
+                XOR     AX,AX
+.L10:           STOSD
+                OR      DI,DI
+                JNZ     .L10
+
+                XOR     DX,DX
+.L9:            CMP     [VBECURBANK],DL
+                JZ      .L8
+
+                INC     DX
+                JMP     .L9
+
+.L8:            MOV     [BEAM_POS+2],VIDEO_SEG  ;SET BEAM SEG
+                JMP     VBESWBANK
+
+VBEVRETRACE:    CMP     [BEAM_POS+2],VIDEO_SEG
+                JNZ     .L1
+
+                XOR     DX,DX
+                JMP     VBESWBANK
+
+.L1:            MOV     [VBECURBANK],0
+VGAVRETRACE:    RETN
+

@@ -1,0 +1,21 @@
+100 ICON "X11Lib.ico"
+1 VERSIONINFO
+FILEVERSION     1,0,0,0
+PRODUCTVERSION  6,7,0,0
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "080904E4"
+    BEGIN
+      VALUE "CompanyName", "MATI"
+      VALUE "FileDescription", "A Cellular-Automaton Laboratory"
+      VALUE "FileVersion", "1.0"
+      VALUE "InternalName", "xlife"
+      VALUE "LegalCopyright", "Jon Bennett, Chuck Silvers, Paul Callahan, Eric S. Raymond, Achim Flammenkamp, David Kinder, Vladimir Lidovski, Yaroslav Zotov"
+      VALUE "OriginalFilename", "xlife.exe"
+      VALUE "ProductName", "X Life"
+      VALUE "ProductVersion", "6.7"
+    END
+  END
+END
+

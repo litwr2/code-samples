@@ -1,0 +1,30 @@
+I=../../../xlife-add
+D=$I/orig-kinder/
+echo -n >00
+for i in Makefile X11App.h X11FrameWnd.cpp X11Lib.cpp X11Lib.rc X11WinMain.c X11Wnd.cpp X11Wnd.h
+do
+   A="diff -urN ${D}X11Lib/$i X11Lib/$i"
+   $A > 01
+   (echo $A; cat 01) >> 00
+done
+
+sed s!$D!! 00 >xlife4win3_5-X11Lib.patch
+echo -n >00
+
+i=unistd.h
+A="diff -urN ${D}include/$i include/$i"
+$A > 01
+(echo $A; cat 01) >> 00
+
+sed s!$D!! 00 > xlife4win3_5-include.patch
+echo -n >00
+
+for i in X.h Xlib.h Xutil.h keysymdef.h
+do
+   A="diff -urN ${D}include/X11/$i include/X11/$i"
+   $A > 01
+   (echo $A; cat 01) >> 00
+done
+
+sed s!$D!! 00 > xlife4win3_5-X11.patch
+rm 00 01

@@ -1,0 +1,304 @@
+RESTORE_INTR9:  PUSH    DS
+                MOV     DX,[CS:SAVE9LO] ;RESTORE INTR9 VECTOR
+                MOV     DS,[CS:SAVE9HI]
+                JMP     SET_INTR9.L1
+
+SET_INTR9:      MOV     AX,3509H        ;SAVE/SET INTR9 VECTOR
+                INT     21H
+                PUSH    DS
+                PUSH    CS
+                POP     DS
+                MOV     [SAVE9LO],BX
+                MOV     [SAVE9HI],ES
+                MOV     DX,INTR9
+.L1:            MOV     AX,2509H
+                INT     21H
+                POP     DS
+                RETN
+
+INTR9:          PUSH    AX
+                PUSH    DS
+                MOV     AX,SEG_DATA
+                MOV     DS,AX
+                IN      AL,60H
+                MOV     AH,AL
+                XCHG    AH,[PREV_KEY]
+
+                CMP     AL,0E0H
+                JAE     .LEZ
+
+                CMP     AH,0E0H
+                JNZ     .L2
+
+                MOV     AH,AL
+                AND     AH,7FH
+                CMP     AH,2AH
+                JZ      .LEZ
+
+                CMP     AH,36H
+                JZ      .LEZ
+
+.L2:            CMP     AL,0C6H         ;ScrollLock?
+                JNZ     .L4
+
+                OR      [LED_NEW],10H
+                JMP     .LEZ
+
+.L4:            CMP     AL,0C5H         ;NumLock?
+                JNZ     .L5
+
+                OR      [LED_NEW],20H
+                JMP     .LEZ
+
+.L5:            PUSH    BX
+                PUSH    DX
+                CMP     AL,0D4H         ;SysReq (Alt+PrintScreen)?
+                JZ      .SR
+
+                CMP     AL,0BAH         ;CapsLock?
+                JZ      .LCL
+
+                CMP     [TIMER_ST],0    ;debugger mode?
+                JNE     .LX
+
+                CMP     AL,3AH          ;CapsLock Pressed?
+                JZ      .LX1
+
+                CMP     [JOY1_ST],1
+                MOVZX   DX,BYTE [JOY_MASK]
+                JA      .JE_L2
+
+                JZ      .JE_L8
+
+                CALL    .JE1          ;J1 AT K1
+                JMP     .JE_L7
+
+.JE_L8:         CALL    I9_JSB        ;J1 AT K2
+                CALL    .JE2
+                CALL    I9_JSB
+.JE_L7:         OR      DH,DH
+                JNZ     .JE_L2
+
+.JE_L9:         MOV     BYTE [JOY_MASK],DL
+                JMP     .LE
+
+.JE_L2:         CMP     [JOY2_ST],1
+                MOVZX   DX,BYTE [JOY_MASK+1]
+                JA      .NJE
+
+                JZ      .JE_L1
+
+                CALL    I9_JSB        ;J2 AT K1
+                CALL    .JE1
+                CALL    I9_JSB
+.JE_L5:         OR      DH,DH
+                JNZ     .NJE
+
+                MOV     BYTE [JOY_MASK+1],DL
+                JMP     .LE
+
+.JE_L1:         CALL    .JE2          ;J2 AT K2
+                JMP     .JE_L5
+
+.NJE:           MOV     DL,AL
+                AND     AX,7FH
+                MOV     BX,AX
+                MOV     DH,AL
+                OR      AH,[KT1+BX]
+                JS      .L3
+
+                MOV     BL,AH
+                MOV     AL,AH
+                SHR     BL,3
+                AND     AX,7
+                OR      DL,DL
+                JS      .L1
+
+                BTR     WORD [KMATRIX+BX],AX
+                JMP     .LE
+
+.L1:            BTS     WORD [KMATRIX+BX],AX
+                TEST    [LED],40H
+                JZ      .L3
+
+                AND     [KMATRIX+1],07FH
+.L3:            MOV     [KBUFA],AH
+                MOV     WORD [KBUFS],DX
+.LE:            POP     DX
+                POP     BX
+.LEZ:           POP     DS
+                MOV     AL,20H
+                OUT     20H,AL
+.LEZ1:          POP     AX
+                IRET
+
+.LCL:           XOR     [LED],40H
+                XOR     [KMATRIX+1],80H
+                JMP     .LX1
+
+.SR:            XCHG    BP,SP
+                CMP     WORD [BP+10],SEG_CODE
+                JNZ     .L4B
+
+                MOV     WORD [BP+8],END_EMU
+                MOV     DWORD [FMSG+12],' abo'
+                MOV     WORD [FMSG+16],'rt'
+.L4B:           XCHG    BP,SP
+                JMP     .LE
+
+.JE1:           CMP     AL,12H          ;JOY1 UP P
+                JNZ     .J1
+
+                AND     DL, 0FEH
+                RETN
+
+.J1:            CMP     AL,92H          ;JOY1 UP R
+                JNZ     .J2
+
+                OR      DL, 1
+                RETN
+
+.J2:            CMP     AL,1FH          ;JOY1 LEFT P
+                JNZ     .J3
+
+                AND     DL, 0FBH
+                RETN
+
+.J3:            CMP     AL,9FH          ;JOY1 LEFT R
+                JNZ     .J4
+
+                OR      DL, 4
+                RETN
+
+.J4:            CMP     AL,20H          ;JOY1 RIGHT P
+                JNZ     .J5
+
+                AND     DL, 0F7H
+                RETN
+
+.J5:            CMP     AL,0A0H         ;JOY1 RIGHT R
+                JNZ     .J6
+
+                OR      DL, 8
+                RETN
+
+.J6:            CMP     AL,2DH          ;JOY1 DOWN P
+                JNZ     .J7
+
+                AND     DL, 0FDH
+                RETN
+
+.J7:            CMP     AL,0ADH         ;JOY1 DOWN R
+                JNZ     .J8
+
+                OR      DL, 2
+                RETN
+
+.J8:            CMP     AL,35H          ;JOY1 FIRE P
+                JNZ     .J9
+
+                AND     DL, 0BFH
+                RETN
+
+.J9:            CMP     AL,0B5H         ;JOY1 FIRE R
+                JNZ     .J10
+
+                OR      DL, 040H
+                RETN
+.J10:           INC     DH
+                RETN
+
+.JE2:           CMP     AL,48H          ;JOY2 UP P
+                JNZ     .J11
+
+                AND     DL, 0FEH
+                RETN
+
+.J11:           CMP     AL,0C8H         ;JOY2 UP R
+                JNZ     .J12
+                OR      DL, 1
+                RETN
+
+.J12:           CMP     AL,4BH          ;JOY2 LEFT P
+                JNZ     .J13
+
+                AND     DL, 0FBH
+                RETN
+
+.J13:           CMP     AL,0CBH         ;JOY2 LEFT R
+                JNZ     .J14
+
+                OR      DL, 4
+                RETN
+
+.J14:           CMP     AL,4DH          ;JOY2 RIGHT P
+                JNZ     .J15
+
+                AND     DL, 0F7H
+                RETN
+
+.J15:           CMP     AL,0CDH         ;JOY2 RIGHT R
+                JNZ     .J16
+
+                OR      DL, 8
+                RETN
+
+.J16:           CMP     AL,50H          ;JOY2 DOWN P
+                JNZ     .J17
+
+                AND     DL, 0FDH
+                RETN
+
+.J17:           CMP     AL,0D0H         ;JOY2 DOWN R
+                JNZ     .J18
+
+                OR      DL, 2
+                RETN
+
+.J18:           CMP     AL,36H          ;JOY2 FIRE P
+                JNZ     .J19
+
+                AND     DL, 07FH
+                RETN
+
+.J19:           CMP     AL,0B6H         ;JOY2 FIRE R
+                JNZ     .J20
+
+                OR      DL, 080H
+                RETN
+
+.J20:           INC     DH
+                RETN
+
+.LX:            CMP     AL,046H         ;ScrollLock?
+                JZ      .LE
+
+                CMP     AL,054H         ;SysReq (Alt+PrintScreen)?
+                JZ      .SR
+
+                CMP     AL,045H         ;NumLock?
+                JZ      .LE
+
+.LX1:           POP     DX
+                POP     BX
+                POP     DS
+
+                IN      AL,21H          ;mask timer interrupt
+                OR      AL,1
+                OUT     21H,AL
+                PUSHF
+                DB      9AH
+SAVE9LO         DW      ?
+SAVE9HI         DW      ?
+
+                AND     AL,0FEH         ;unmask timer interrupt
+                OUT     21H,AL
+                JMP     INTR9.LEZ1
+
+I9_JSB:         XOR     DL,0C0H
+                TEST    DL,0C0H
+                JNZ     .L1
+
+                XOR     DL,0C0H
+.L1:            RETN
+

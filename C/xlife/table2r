@@ -1,0 +1,125 @@
+#!GAWKPATH -f
+# A converter from TABLE to XLIFE r-format
+# by Vladimir Lidovski, v2.10, 2011, 2013, (C) Copyright GNU GPL v2
+# $Id: table2r 216 2013-07-28 18:06:27Z micro $
+
+BEGIN {
+  if (ARGC != 2) {
+     print "USAGE: table2r INFILE >OUTFILE"
+     print "OR: gawk -f table2r INFILE >OUTFILE"
+     exit
+  }
+  for (i = 0; i <= 9; i++)
+     tr[i] = sprintf("%c", i + 48)
+  for (i = 10; i < 10 + 26; i++)
+     tr[i] = sprintf("%c", i + 55)
+  for (i = 10 + 26; i < 10 + 52; i++)
+     tr[i] = sprintf("%c", i + 61)
+  tr[62] = "@"
+  tr[63] = "~"
+  print "# Converted from " ARGV[1] " by table2r"
+}
+/^\ *#/ {
+  print 
+  next
+}
+/^\ *var / {
+  gsub("[ \t]+|#.*$", "", $0)
+  p = index($0, "var")
+  s = substr($0, p + 3)
+  gsub("[{}]", "", s)
+  split(s, a, "=")
+  x[a[1]] = a[2]
+  z[sprintf("%04d", length(a[1])) a[1]] = a[1]
+  ly++
+  sorted = 0
+  next
+}
+/^\ *neighborhood/ {
+  gsub("[ \t]+|#.*$", "", $0)
+  p = index($0, ":")
+  s = substr($0, p + 1)
+  if (s == "Moore")
+     print s
+  else if (s != "vonNeumann") {
+     print "neighborhood: " s " is not supported" >"/dev/stderr"
+     exit
+  }
+  next
+}
+/^\ *symmetries/ {
+  gsub("[ \t]+|#.*$", "", $0)
+  p = index($0, ":")
+  s = substr($0, p + 1)
+  if (s == "none")
+     print "nosymmetries"
+  else if (s != "rotate4" && s != "rotate8")
+     print s
+  next
+}
+/^\ *n_state/ {
+  gsub("[ \t]+|#.*$", "", $0)
+  p = index($0, ":")
+  s = 0 + substr($0, p + 1)
+  if (s > 64) {
+     print "Only up to 64 states supported by r-format" >"/dev/stderr"
+     exit
+  }
+  print "states " s 
+  next
+}
+/^[0-9][0-9][0-9][0-9][0-9][0-9]/ {
+  print 
+  next
+}
+/^[0-9A-Za-z_]+,[0-9A-Za-z_]+,[0-9A-Za-z_]+,[0-9A-Za-z_]+,[0-9A-Za-z_]+,[0-9A-Za-z_]+/ {
+  if (!sorted && ly) {
+     sorted = 1
+     asorti(z, y)
+     for (i in y)
+       gsub("^....", "", y[i])
+  }
+  p = index($0, "#")
+  tail = ""
+  head = $0
+  if (p) {
+     tail = substr($0, p)
+     head = substr($0, 1, p - 1)
+  }
+  gsub("[ \t]+", "", head)
+  n = qe = 1
+  delete es
+  es[qe] = head
+  for (i = ly; i > 0; i--) {
+     for (j = 1; j <= qe; j++)
+       if (qm = gsub(y[i], y[i], es[j])) {
+         if (qm == 1)
+           gsub(y[i], "[" x[y[i]] "]", es[j])
+         else if (qm > 1) {
+           la = split(x[y[i]], a, ",")
+           for (k = 2; k <= la; k++) {
+             n = n + 1
+             es[n] = es[j]
+             gsub(y[i], a[k], es[n])
+           }
+           gsub(y[i], a[1], es[j])
+         }
+       }
+     qe = n
+     }
+  if (tail && qe > 1) print tail 
+  for (j = 1; j <= qe; j++) {
+     for (i = 63; i >= 10; i--)
+       gsub(i, tr[i], es[j])
+     gsub(",", "", es[j])
+     if (tail && qe == 1)
+       print es[j] "  " tail 
+     else
+       print es[j] 
+  }
+  if (tail && qe > 1) print "#" 
+  next
+}
+{
+  print
+}

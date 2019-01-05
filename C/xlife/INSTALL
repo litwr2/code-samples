@@ -1,0 +1,25 @@
+			XLIFE INSTALLATION NOTES
+
+	This code uses ANSI prototypes.  If you're using an archaic UNIX with
+pre-ANSI C, use GNU gcc to compile it.  GNU cc is almost certainly better than
+your native compiler anyhow.
+
+	You may want to modify the LIFEPATSDIR define in the Makefile to match
+where you will be installing the xlife pattern libraries (you can also tell
+the program about this through the LIFEPATH environment variable).
+
+	Past that, not much needs to be done. Just compile and have
+at some of the more interesting patterns shipped along with the
+program; see doc/PATTERNS for a list.
+
+	If you feel up to it, the HACKING file lists some things we would
+like to add into the game ... if you implement any of these, please send
+us the patches.
+
+	About file formats - lifeconv is a filter that will switch life
+file formats for you (see its manual page for details).  If you have the
+patterns from the initial 1.0 release, you may want to run lifeconv on all
+of the patterns.  It isn't really necessary since the new loader assumes the
+old format if none is specified in the file (see the man page), but
+lifeconv will convert the image to the smallest representation, and will
+allow offset loading.

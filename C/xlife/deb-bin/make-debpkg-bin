@@ -1,0 +1,12 @@
+V=7.0.0
+P=xlife-$V~beta.deb
+rm -f *.gz *.deb md5sums
+echo 2.0 >debian-binary
+gzip -n9 usr/share/man/man6/xlife.6 usr/share/doc/xlife-$V/changelog
+for i in `du -la usr|awk '{print $2}'`;do test -f $i && md5sum $i >>md5sums;done
+fakeroot tar czf control.tar.gz control md5sums postinst
+fakeroot tar czf data.tar.gz usr
+ar r $P debian-binary control.tar.gz data.tar.gz
+gzip -nd usr/share/man/man6/xlife.6.gz usr/share/doc/xlife-$V/changelog.gz
+rm debian-binary md5sums *.gz
+lintian $P

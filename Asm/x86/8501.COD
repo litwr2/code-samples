@@ -1,0 +1,1500 @@
+CPU8501:        CMP     [TICKS],0
+		JE      .L3
+                JS      .L2
+
+		DEC	[TICKS]
+.L1:            JMP     [CPUOP]
+
+.L2:            MOV     BX,[CPUOP]
+                MOV     [TICKS],0
+                CMP     BYTE [CS:BX-1],'W'
+                JZ      .L1
+
+.L3:            RETN
+
+IRQTST:         TEST    [SR],4
+                JNZ     .L1
+
+                TEST    [TED_9],80H
+                JZ      .L1
+
+                MOV     AX,[IRQOP]
+                INC     [IRQOP]
+                CMP     AX,[CPUOP]
+                JZ      .L1
+
+                MOV     [CPUOP],IRQSEQ
+                RETN
+
+.L1:            MOV     [CPUOP],FETCHBYTE1
+                RETN
+
+IRQSEQ:         MOV     [CPUOP],IRQ_2
+                RETN
+
+IRQ_2:          MOV     [CPUOP],IRQ_3
+                RETN
+
+                DB      'W'
+IRQ_3:          PUSH_PCH IRQ_4
+
+                DB      'W'
+IRQ_4:          PUSH_PCL IRQ_5
+
+                DB      'W'
+IRQ_5:          MOV     AL,[SR]
+                AND     AL,0EFH
+                OR      [SR],4
+                MOV     BX,[SPR]
+                MOV     [FS:BX],AL
+                DEC     BYTE [SPR]
+                MOV     [CPUOP],IRQ_6
+                RETN
+
+IRQ_6:          MOV     BX,0FFFEH
+                CALL    MREAD_DH
+                MOV     BYTE [PC],DH
+                MOV     [CPUOP],IRQ_7
+                RETN
+
+IRQ_7:          MOV     BX,0FFFFH
+                CALL    MREAD_DH
+                MOV     BYTE [PC+1],DH
+                MOV     [CPUOP],FETCHBYTE1
+                RETN
+
+FETCHBYTE1:     ADDR_IM
+                MOVZX   BX,DH
+                MOV     AX,WORD [OPP+EBX*2]
+                MOV     [CPUOP],AX
+                RETN
+
+O00:            INC     [PC]            ;BRK
+                MOV     [CPUOP],O00_3
+                RETN
+
+                DB      'W'
+O00_3:          PUSH_PCH O00_4
+
+                DB      'W'
+O00_4:          PUSH_PCL O00_5
+
+                DB      'W'
+O00_5:          MOV     AL,[SR]
+                ;OR      AL,10H  ;*
+                OR      [SR],4
+                MOV     BX,[SPR]
+                MOV     [FS:BX],AL
+                DEC     BYTE [SPR]
+                MOV     [CPUOP],IRQ_6
+                RETN
+
+O01:            ADDR_IZP O01_3          ;ORA (zp,X)
+O01_3:          ADDR_IZP3X O01_4
+O01_4:          ADDR_IZP34 O01_5
+O01_5:          ADDR_IZP45 O01_6
+O01_6:          MOV     BX,[T2ADDR]
+                CALL    MREAD_DH
+                LOGIC   OR
+
+O05:            ADDR_ZP O05_3           ;ORA zp
+O05_3:          MOV     BX,[TADDR]
+                CALL    MREAD_DH
+                LOGIC   OR
+
+O06:            ADDR_ZP O06_3           ;ASL zp
+O06_3:          RMW1    O06_4
+
+                DB      'W'
+O06_4:          RMW2    O06_5
+
+                DB      'W'
+O06_5:          SHIFT   SHL
+
+O08:            MOV     [CPUOP],O08_3   ;PHP
+                RETN
+
+                DB      'W'
+O08_3:          MOV     BX,[SPR]
+                MOV     AL,[SR]
+                OR      AL,10H
+                MOV     [FS:BX],AL
+                DEC     BYTE [SPR]
+                JMP     IRQTST
+
+O09:            ADDR_IM                 ;ORA im
+                LOGIC   OR
+
+O0A:            AND     [SR],7CH        ;ASL ac
+                SHL     [AC],1
+                ADC     [SR],0
+                ADD     [AC],0
+                SETNZ
+
+O0D:            ADDR_ABS O0D_3          ;ORA abs
+O0D_3:          ADDR_ABS3 O05_3
+
+O0E:            ADDR_ABS O0E_3          ;ASL abs
+O0E_3:          ADDR_ABS3 O06_3
+
+O10:            BRANCH  80H,JNZ         ;BPL
+O10_3:          MOV     AL,[TMPCPUV]
+                CBW
+                MOV     BL,BYTE [PC+1]
+                ADD     [PC],AX
+                CMP     BYTE [PC+1],BL
+                JZ      IRQTST
+
+                MOV     [CPUOP],IRQTST
+                RETN
+
+O11:            ADDR_IZP O11_3          ;ORA (zp),Y
+O11_3:          ADDR_IZP34 O11_4
+O11_4:          ADDR_IZP45 O11_5
+O11_5:          ADDR_IZP5Y O01_6
+
+O15:            ADDR_ZP O15_3           ;ORA zp,X
+O15_3:          ADDR_ZPX O05_3
+
+O16:            ADDR_ZP O16_3           ;ASL zp,X
+O16_3:          ADDR_ZPX O06_3
+
+O18:            AND     [SR],0FEH       ;CLC
+                JMP     IRQTST
+
+O19:            ADDR_ABS O19_3          ;ORA abs,Y
+O19_3:          ADDR_ABS3 O19_4
+O19_4:          ADDR_ABS4I O05_3,YR
+
+O1D:            ADDR_ABS O1D_3          ;ORA abs,X
+O1D_3:          ADDR_ABS3 O1D_4
+O1D_4:          ADDR_ABS4I O05_3,XR
+
+O1E:            ADDR_ABS O1E_3          ;ASL abs,X
+O1E_3:          ADDR_ABS3 O1E_4
+O1E_4:          ADDR_ABS4X O06_3
+
+O20:            ADDR_ABS O20_3          ;JSR abs
+O20_3:          MOV     [CPUOP],O20_4
+                RETN
+
+                DB      'W'
+O20_4:          PUSH_PCH O20_5
+
+                DB      'W'
+O20_5:          PUSH_PCL O20_6
+O20_6:          MOV     BX,[PC]
+                CALL    MREAD_DH
+                MOV     DL,BYTE [TADDR]
+                MOV     [PC],DX
+                JMP     IRQTST
+
+O21:            ADDR_IZP O21_3          ;AND (zp,X)
+O21_3:          ADDR_IZP3X O21_4
+O21_4:          ADDR_IZP34 O21_5
+O21_5:          ADDR_IZP45 O21_6
+O21_6:          MOV     BX,[T2ADDR]
+                CALL    MREAD_DH
+                LOGIC   AND
+
+O24:            ADDR_ZP O24_3           ;BIT zp
+O24_3:          MOV     BX,[TADDR]
+                AND     [SR],3DH
+                CALL    MREAD_DH
+                TEST    [AC],DH
+                JNZ     .L1
+
+                OR      [SR],2
+.L1:            AND     DH,0C0H
+                OR      [SR],DH
+                JMP     IRQTST
+
+O25:            ADDR_ZP O25_3           ;AND zp
+O25_3:          MOV     BX,[TADDR]
+                CALL    MREAD_DH
+                LOGIC   AND
+
+O26:            ADDR_ZP O26_3           ;ROL zp
+O26_3:          RMW1    O26_4
+
+                DB      'W'
+O26_4:          RMW2    O26_5
+
+                DB      'W'
+O26_5:          ROTATE  RCL
+
+O28:            MOV     [CPUOP],O28_3   ;PLP
+                RETN
+
+O28_3:          INC     BYTE [SPR]
+                MOV     [CPUOP],O28_4
+                RETN
+
+O28_4:          MOV     BX,[SPR]
+                MOV     AL,[FS:BX]
+                OR      AL,30H
+                MOV     [SR],AL
+                JMP     IRQTST
+
+O29:            ADDR_IM                 ;AND im
+                LOGIC   AND
+
+O2A:            AND     [SR],7DH        ;ROL ac
+                BTR     WORD [SR],0
+                RCL     [AC],1
+                ADC     [SR],0
+                ADD     [AC],0
+                SETNZ
+
+O2C:            ADDR_ABS O2C_3          ;BIT abs
+O2C_3:          ADDR_ABS3 O24_3
+
+O2D:            ADDR_ABS O2D_3          ;AND abs
+O2D_3:          ADDR_ABS3 O25_3
+
+O2E:            ADDR_ABS O2E_3          ;ROL abs
+O2E_3:          ADDR_ABS3 O26_3
+
+O30:            BRANCH  80H,JZ          ;BMI
+
+O31:            ADDR_IZP O31_3          ;AND (zp),Y
+O31_3:          ADDR_IZP34 O31_4
+O31_4:          ADDR_IZP45 O31_5
+O31_5:          ADDR_IZP5Y O21_6
+
+O35:            ADDR_ZP O35_3           ;AND zp,X
+O35_3:          ADDR_ZPX O25_3
+
+O36:            ADDR_ZP O36_3           ;ROL zp,X
+O36_3:          ADDR_ZPX O26_3
+
+O38:            OR      [SR],1          ;SEC
+                JMP     IRQTST
+
+O39:            ADDR_ABS O39_3          ;AND abs,Y
+O39_3:          ADDR_ABS3 O39_4
+O39_4:          ADDR_ABS4I O25_3,YR
+
+O3D:            ADDR_ABS O3D_3          ;AND abs,X
+O3D_3:          ADDR_ABS3 O3D_4
+O3D_4:          ADDR_ABS4I O25_3,XR
+
+O3E:            ADDR_ABS O3E_3          ;ROL abs,X
+O3E_3:          ADDR_ABS3 O3E_4
+O3E_4:          ADDR_ABS4X O26_3
+
+O40:            MOV     [CPUOP],O40_3   ;RTI
+                RETN
+
+O40_3:          INC     BYTE [SPR]
+                MOV     [CPUOP],O40_4
+                RETN
+
+O40_4:          MOV     BX,[SPR]
+                MOV     AL,[FS:BX]
+                OR      AL,30H
+                MOV     [SR],AL
+                INC     BYTE [SPR]
+                MOV     [CPUOP],O40_5
+                RETN
+
+O40_5:          POP_PCL O40_6
+O40_6:          MOV     BX,[SPR]
+                MOV     AL,[FS:BX]
+                MOV     BYTE [PC+1],AL
+                JMP     IRQTST
+
+O41:            ADDR_IZP O41_3          ;EOR (zp,X)
+O41_3:          ADDR_IZP3X O41_4
+O41_4:          ADDR_IZP34 O41_5
+O41_5:          ADDR_IZP45 O41_6
+O41_6:          MOV     BX,[T2ADDR]
+                CALL    MREAD_DH
+                LOGIC   XOR
+
+O45:            ADDR_ZP O45_3           ;EOR zp
+O45_3:          MOV     BX,[TADDR]
+                CALL    MREAD_DH
+                LOGIC   XOR
+
+O46:            ADDR_ZP O46_3           ;LSR zp
+O46_3:          RMW1    O46_4
+
+                DB      'W'
+O46_4:          RMW2    O46_5
+
+                DB      'W'
+O46_5:          SHIFT   SHR
+
+O48:            MOV     [CPUOP],O48_3   ;PHA
+                RETN
+
+                DB      'W'
+O48_3:          MOV     BX,[SPR]
+                MOV     AL,[AC]
+                MOV     [FS:BX],AL
+                DEC     BYTE [SPR]
+                JMP     IRQTST
+
+O49:            ADDR_IM                 ;EOR im
+                LOGIC   XOR
+
+O4A:            AND     [SR],7CH        ;LSR ac
+                SHR     [AC],1
+                ADC     [SR],0
+                ADD     [AC],0
+                SETNZ
+
+O4C:            MOV     BX,[PC]         ;JMP abs
+                INC     [PC]
+                CALL    MREAD_DH
+                MOV     BYTE [TADDR],DH
+                MOV     [CPUOP],O4C_3
+                RETN
+
+O4C_3:          MOV     BX,[PC]
+                CALL    MREAD_DH
+                MOV     DL,BYTE [TADDR]
+                MOV     [PC],DX
+                JMP     IRQTST
+
+O4D:            ADDR_ABS O4D_3          ;EOR abs
+O4D_3:          ADDR_ABS3 O45_3
+
+O4E:            ADDR_ABS O4E_3          ;LSR abs
+O4E_3:          ADDR_ABS3 O46_3
+
+O50:            BRANCH  40H,JNZ         ;BVC
+
+O51:            ADDR_IZP O51_3          ;EOR (zp),Y
+O51_3:          ADDR_IZP34 O51_4
+O51_4:          ADDR_IZP45 O51_5
+O51_5:          ADDR_IZP5Y O41_6
+
+O55:            ADDR_ZP O55_3           ;EOR zp,X
+O55_3:          ADDR_ZPX O45_3
+
+O56:            ADDR_ZP O56_3           ;LSR zp,X
+O56_3:          ADDR_ZPX O46_3
+
+O58:            AND     [SR],0FBH       ;CLI
+                JMP     IRQTST
+
+O59:            ADDR_ABS O59_3          ;EOR abs,Y
+O59_3:          ADDR_ABS3 O59_4
+O59_4:          ADDR_ABS4I O45_3,YR
+
+O5D:            ADDR_ABS O5D_3          ;EOR abs,X
+O5D_3:          ADDR_ABS3 O5D_4
+O5D_4:          ADDR_ABS4I O45_3,XR
+
+O5E:            ADDR_ABS O5E_3          ;LSR abs,X
+O5E_3:          ADDR_ABS3 O5E_4
+O5E_4:          ADDR_ABS4X O46_3
+
+O60:            MOV     [CPUOP],O60_3   ;RTS
+                RETN
+
+O60_3:          INC     BYTE [SPR]
+                MOV     [CPUOP],O60_4
+                RETN
+
+O60_4:          POP_PCL O60_5
+O60_5:          MOV     BX,[SPR]
+                MOV     AL,[FS:BX]
+                MOV     BYTE [PC+1],AL
+                MOV     [CPUOP],O60_6
+                RETN
+
+O60_6:          INC     [PC]
+                JMP     IRQTST
+
+O61:            ADDR_IZP O61_3          ;ADC (zp,X)
+O61_3:          ADDR_IZP3X O61_4
+O61_4:          ADDR_IZP34 O61_5
+O61_5:          ADDR_IZP45 O61_6
+O61_6:          MOV     BX,[T2ADDR]
+                CALL    MREAD_DH
+                ADDITION
+
+O65:            ADDR_ZP O65_3           ;ADC zp
+O65_3:          MOV     BX,[TADDR]
+                CALL    MREAD_DH
+                ADDITION
+
+O66:            ADDR_ZP O66_3           ;ROR zp
+O66_3:          RMW1    O66_4
+
+                DB      'W'
+O66_4:          RMW2    O66_5
+
+                DB      'W'
+O66_5:          ROTATE  RCR
+
+O68:            MOV     [CPUOP],O68_3   ;PLA
+                RETN
+
+O68_3:          INC     BYTE [SPR]
+                MOV     [CPUOP],O68_4
+                RETN
+
+O68_4:          MOV     BX,[SPR]
+                MOV     AL,[FS:BX]
+                MOV     [AC],AL
+                AND     [SR],7DH
+                OR      AL,AL
+                SETNZ
+
+O69:            ADDR_IM                 ;ADC im
+                ADDITION
+
+O6A:            AND     [SR],7DH        ;ROR ac
+                BTR     WORD [SR],0
+                RCR     [AC],1
+                ADC     [SR],0
+                ADD     [AC],0
+                SETNZ
+
+O6C:            ADDR_ABS O6C_3          ;JMP (abs)
+O6C_3:          ADDR_ABS3 O6C_4
+O6C_4:          MOV     BX,[TADDR]
+                CALL    MREAD_DH
+                MOV     BYTE [T2ADDR],DH
+                MOV     [CPUOP],O6C_5
+                RETN
+
+O6C_5:          MOV     BX,[TADDR]
+                INC     BL
+                CALL    MREAD_DH
+                MOV     DL,BYTE [T2ADDR]
+                MOV     [PC],DX
+                JMP     IRQTST
+
+O6D:            ADDR_ABS O6D_3          ;ADC abs
+O6D_3:          ADDR_ABS3 O65_3
+
+O6E:            ADDR_ABS O6E_3          ;ROR abs
+O6E_3:          ADDR_ABS3 O66_3
+
+O70:            BRANCH  40H,JZ          ;BVS
+
+O71:            ADDR_IZP O71_3          ;ADC (zp),Y
+O71_3:          ADDR_IZP34 O71_4
+O71_4:          ADDR_IZP45 O71_5
+O71_5:          ADDR_IZP5Y O61_6
+
+O75:            ADDR_ZP O75_3           ;ADC zp,X
+O75_3:          ADDR_ZPX O65_3
+
+O76:            ADDR_ZP O76_3           ;ROR zp,X
+O76_3:          ADDR_ZPX O66_3
+
+O78:            OR      [SR],4          ;SEI
+                JMP     IRQTST
+
+O79:            ADDR_ABS O79_3          ;ADC abs,Y
+O79_3:          ADDR_ABS3 O79_4
+O79_4:          ADDR_ABS4I O65_3,YR
+
+O7D:            ADDR_ABS O7D_3          ;ADC abs,X
+O7D_3:          ADDR_ABS3 O7D_4
+O7D_4:          ADDR_ABS4I O65_3,XR
+
+O7E:            ADDR_ABS O7E_3          ;ROR abs,X
+O7E_3:          ADDR_ABS3 O7E_4
+O7E_4:          ADDR_ABS4X O66_3
+
+O81:            ADDR_IZP O81_3          ;STA (zp,X)
+O81_3:          ADDR_IZP3X O81_4
+O81_4:          ADDR_IZP34 O81_5
+O81_5:          ADDR_IZP45 O81_6
+
+                DB      'W'
+O81_6:          MOV     BX,[T2ADDR]
+                MOV     DH,[AC]
+                CALL    MSTORE_DH
+                JMP     IRQTST
+
+O84:            ADDR_ZP O84_3           ;STY zp
+
+                DB      'W'
+O84_3:          MOV     BX,[TADDR]
+                MOV     DH,[YR]
+                CALL    MSTORE_DH
+                JMP     IRQTST
+
+O85:            ADDR_ZP O85_3           ;STA zp
+
+                DB      'W'
+O85_3:          MOV     BX,[TADDR]
+                MOV     DH,[AC]
+                CALL    MSTORE_DH
+                JMP     IRQTST
+
+O86:            ADDR_ZP O86_3           ;STX zp
+
+                DB      'W'
+O86_3:          MOV     BX,[TADDR]
+                MOV     DH,[XR]
+                CALL    MSTORE_DH
+                JMP     IRQTST
+
+O88:            AND     [SR],7DH        ;DEY
+                DEC     [YR]
+                SETNZ
+
+O8A:            AND     [SR],7DH        ;TXA
+                MOV     AL,[XR]
+                MOV     [AC],AL
+                OR      AL,AL
+                SETNZ
+
+O8C:            ADDR_ABS O8C_3          ;STY abs
+O8C_3:          ADDR_ABS3 O84_3
+
+O8D:            ADDR_ABS O8D_3          ;STA abs
+O8D_3:          ADDR_ABS3 O85_3
+
+O8E:            ADDR_ABS O8E_3          ;STX abs
+O8E_3:          ADDR_ABS3 O86_3
+
+O90:            BRANCH  1,JNZ           ;BCC
+
+O91:            ADDR_IZP O91_3          ;STA (zp),Y
+O91_3:          ADDR_IZP34 O91_4
+O91_4:          ADDR_IZP45 O91_5
+O91_5:          MOVZX   AX,[YR]
+                ADD     [T2ADDR],AX
+                MOV     [CPUOP],O81_6
+                RETN
+
+O94:            ADDR_ZP O94_3           ;STY zp,X
+O94_3:          ADDR_ZPX O84_3
+
+O95:            ADDR_ZP O95_3           ;STA zp,X
+O95_3:          ADDR_ZPX O85_3
+
+O96:            ADDR_ZP O96_3           ;STX zp,Y
+O96_3:          ADDR_ZPY O86_3
+
+O98:            AND     [SR],7DH        ;TYA
+                MOV     AL,[YR]
+                MOV     [AC],AL
+                OR      AL,AL
+                SETNZ
+
+O99:            ADDR_ABS O99_3          ;STA abs,Y
+O99_3:          ADDR_ABS3 O99_4
+O99_4:          MOVZX   AX,[YR]
+                ADD     [TADDR],AX
+                MOV     [CPUOP],O85_3
+                RETN
+
+O9A:            MOV     AL,[XR]         ;TXS
+                MOV     BYTE [SPR],AL
+                JMP     IRQTST
+
+O9D:            ADDR_ABS O9D_3          ;STA abs,X
+O9D_3:          ADDR_ABS3 O9D_4
+O9D_4:          ADDR_ABS4X O85_3
+
+OA0:            ADDR_IM                 ;LDY im
+                AND     [SR],7DH
+                MOV     [YR],DH
+                OR      DH,DH
+                SETNZ
+
+OA1:            ADDR_IZP OA1_3          ;LDA (zp,X)
+OA1_3:          ADDR_IZP3X OA1_4
+OA1_4:          ADDR_IZP34 OA1_5
+OA1_5:          ADDR_IZP45 OA1_6
+OA1_6:          MOV     BX,[T2ADDR]
+                CALL    MREAD_DH
+                MOV     [AC],DH
+                AND     [SR],7DH
+                OR      DH,DH
+                SETNZ
+
+OA2:            ADDR_IM                 ;LDX im
+                AND     [SR],7DH
+                MOV     [XR],DH
+                OR      DH,DH
+                SETNZ
+
+OA4:            ADDR_ZP OA4_3           ;LDY zp
+OA4_3:          MOV     BX,[TADDR]
+                CALL    MREAD_DH
+                MOV     [YR],DH
+                AND     [SR],7DH
+                OR      DH,DH
+                SETNZ
+
+OA5:            ADDR_ZP OA5_3           ;LDA zp
+OA5_3:          MOV     BX,[TADDR]
+                CALL    MREAD_DH
+                MOV     [AC],DH
+                AND     [SR],7DH
+                OR      DH,DH
+                SETNZ
+
+OA6:            ADDR_ZP OA6_3           ;LDX zp
+OA6_3:          MOV     BX,[TADDR]
+                CALL    MREAD_DH
+                MOV     [XR],DH
+                AND     [SR],7DH
+                OR      DH,DH
+                SETNZ
+
+OA8:            AND     [SR],7DH        ;TAY
+                MOV     AL,[AC]
+                MOV     [YR],AL
+                OR      AL,AL
+                SETNZ
+
+OA9:            ADDR_IM                 ;LDA im
+                MOV     [AC],DH
+                AND     [SR],7DH
+                OR      DH,DH
+                SETNZ
+
+OAA:            AND     [SR],7DH        ;TAX
+                MOV     AL,[AC]
+                MOV     [XR],AL
+                OR      AL,AL
+                SETNZ
+
+OAC:            ADDR_ABS OAC_3          ;LDY abs
+OAC_3:          ADDR_ABS3 OA4_3
+
+OAD:            ADDR_ABS OAD_3          ;LDA abs
+OAD_3:          ADDR_ABS3 OA5_3
+
+OAE:            ADDR_ABS OAE_3          ;LDX abs
+OAE_3:          ADDR_ABS3 OA6_3
+
+OB0:            BRANCH  1,JZ            ;BCS
+
+OB1:            ADDR_IZP OB1_3          ;LDA (zp),Y
+OB1_3:          ADDR_IZP34 OB1_4
+OB1_4:          ADDR_IZP45 OB1_5
+OB1_5:          ADDR_IZP5Y OA1_6
+
+OB4:            ADDR_ZP OB4_3           ;LDY zp,X
+OB4_3:          ADDR_ZPX OA4_3
+
+OB5:            ADDR_ZP OB5_3           ;LDA zp,X
+OB5_3:          ADDR_ZPX OA5_3
+
+OB6:            ADDR_ZP OB6_3           ;LDX zp,Y
+OB6_3:          ADDR_ZPY OA6_3
+
+OB8:            AND     [SR],0BFH       ;CLV
+                JMP     IRQTST
+
+OB9:            ADDR_ABS OB9_3          ;LDA abs,Y
+OB9_3:          ADDR_ABS3 OB9_4
+OB9_4:          ADDR_ABS4I OA5_3,YR
+
+OBA:            MOV     AL,BYTE [SPR]   ;TSX
+                MOV     [XR],AL
+                AND     [SR],7DH
+                OR      AL,AL
+                SETNZ
+
+OBC:            ADDR_ABS OBC_3          ;LDY abs,X
+OBC_3:          ADDR_ABS3 OBC_4
+OBC_4:          ADDR_ABS4I OA4_3,XR
+
+OBD:            ADDR_ABS OBD_3          ;LDA abs,X
+OBD_3:          ADDR_ABS3 OBD_4
+OBD_4:          ADDR_ABS4I OA5_3,XR
+
+OBE:            ADDR_ABS OBE_3          ;LDX abs,Y
+OBE_3:          ADDR_ABS3 OBE_4
+OBE_4:          ADDR_ABS4I OA6_3,YR
+
+OC0:            ADDR_IM                 ;CPY im
+                COMPARE YR
+
+OC1:            ADDR_IZP OC1_3          ;CMP (zp,X)
+OC1_3:          ADDR_IZP3X OC1_4
+OC1_4:          ADDR_IZP34 OC1_5
+OC1_5:          ADDR_IZP45 OC1_6
+OC1_6:          MOV     BX,[T2ADDR]
+                CALL    MREAD_DH
+                COMPARE AC
+
+OC4:            ADDR_ZP OC4_3           ;CPY zp
+OC4_3:          MOV     BX,[TADDR]
+                CALL    MREAD_DH
+                COMPARE YR
+
+OC5:            ADDR_ZP OC5_3           ;CMP zp
+OC5_3:          MOV     BX,[TADDR]
+                CALL    MREAD_DH
+                COMPARE AC
+
+OC6:            ADDR_ZP OC6_3           ;DEC zp
+OC6_3:          RMW1    OC6_4
+
+                DB      'W'
+OC6_4:          RMW2    OC6_5
+
+                DB      'W'
+OC6_5:          PM1     DEC
+
+OC8:            AND     [SR],7DH        ;INY
+                INC     [YR]
+                SETNZ
+
+OC9:            ADDR_IM                 ;CMP im
+                COMPARE AC
+
+OCA:            AND     [SR],7DH        ;DEX
+                DEC     [XR]
+                SETNZ
+
+OCC:            ADDR_ABS OCC_3          ;CPY abs
+OCC_3:          ADDR_ABS3 OC4_3
+
+OCD:            ADDR_ABS OCD_3          ;CMP abs
+OCD_3:          ADDR_ABS3 OC5_3
+
+OCE:            ADDR_ABS OCE_3          ;DEC abs
+OCE_3:          ADDR_ABS3 OC6_3
+
+OD0:            BRANCH  2,JNZ           ;BNE
+
+OD1:            ADDR_IZP OD1_3          ;CMP (zp),Y
+OD1_3:          ADDR_IZP34 OD1_4
+OD1_4:          ADDR_IZP45 OD1_5
+OD1_5:          ADDR_IZP5Y OC1_6
+
+OD5:            ADDR_ZP OD5_3           ;CMP zp,X
+OD5_3:          ADDR_ZPX OC5_3
+
+OD6:            ADDR_ZP OD6_3           ;DEC zp,X
+OD6_3:          ADDR_ZPX OC6_3
+
+OD8:            AND     [SR],0F7H       ;CLD
+                JMP     IRQTST
+
+OD9:            ADDR_ABS OD9_3          ;CMP abs,Y
+OD9_3:          ADDR_ABS3 OD9_4
+OD9_4:          ADDR_ABS4I OC5_3,YR
+
+ODD:            ADDR_ABS ODD_3          ;CMP abs,X
+ODD_3:          ADDR_ABS3 ODD_4
+ODD_4:          ADDR_ABS4I OC5_3,XR
+
+ODE:            ADDR_ABS ODE_3          ;DEC abs,X
+ODE_3:          ADDR_ABS3 ODE_4
+ODE_4:          ADDR_ABS4X OC6_3
+
+OE0:            ADDR_IM                 ;CPX im
+                COMPARE XR
+
+OE1:            ADDR_IZP OE1_3          ;SBC (zp,X)
+OE1_3:          ADDR_IZP3X OE1_4
+OE1_4:          ADDR_IZP34 OE1_5
+OE1_5:          ADDR_IZP45 OE1_6
+OE1_6:          MOV     BX,[T2ADDR]
+                CALL    MREAD_DH
+                SUBTRACTION
+
+OE4:            ADDR_ZP OE4_3           ;CPX zp
+OE4_3:          MOV     BX,[TADDR]
+                CALL    MREAD_DH
+                COMPARE XR
+
+OE5:            ADDR_ZP OE5_3           ;SBC zp
+OE5_3:          MOV     BX,[TADDR]
+                CALL    MREAD_DH
+                SUBTRACTION
+
+OE6:            ADDR_ZP OE6_3           ;INC zp
+OE6_3:          RMW1    OE6_4
+
+                DB      'W'
+OE6_4:          RMW2    OE6_5
+
+                DB      'W'
+OE6_5:          PM1     INC
+
+OE8:            AND     [SR],7DH        ;INX
+                INC     [XR]
+                SETNZ
+
+OEB:                                    ;SBC im *** SUB
+OE9:            ADDR_IM                 ;SBC im
+                SUBTRACTION
+
+OFA:
+ODA:
+O7A:
+O5A:
+O3A:
+O1A:
+OEA:            JMP     IRQTST          ;NOP
+
+OEC:            ADDR_ABS OEC_3          ;CPX abs
+OEC_3:          ADDR_ABS3 OE4_3
+
+OED:            ADDR_ABS OED_3          ;SBC abs
+OED_3:          ADDR_ABS3 OE5_3
+
+OEE:            ADDR_ABS OEE_3          ;INC abs
+OEE_3:          ADDR_ABS3 OE6_3
+
+OF0:            BRANCH  2,JZ            ;BEQ
+
+OF1:            ADDR_IZP OF1_3          ;SBC (zp),Y
+OF1_3:          ADDR_IZP34 OF1_4
+OF1_4:          ADDR_IZP45 OF1_5
+OF1_5:          ADDR_IZP5Y OE1_6
+
+OF5:            ADDR_ZP OF5_3           ;SBC zp,X
+OF5_3:          ADDR_ZPX OE5_3
+
+OF6:            ADDR_ZP OF6_3           ;INC zp,X
+OF6_3:          ADDR_ZPX OE6_3
+
+OF8:            OR      [SR],8          ;SED
+                JMP     IRQTST
+
+OF9:            ADDR_ABS OF9_3          ;SBC abs,Y
+OF9_3:          ADDR_ABS3 OF9_4
+OF9_4:          ADDR_ABS4I OE5_3,YR
+
+OFD:            ADDR_ABS OFD_3          ;SBC abs,X
+OFD_3:          ADDR_ABS3 OFD_4
+OFD_4:          ADDR_ABS4I OE5_3,XR
+
+OFE:            ADDR_ABS OFE_3          ;INC abs,X
+OFE_3:          ADDR_ABS3 OFE_4
+OFE_4:          ADDR_ABS4X OE6_3
+
+OF2:
+OD2:
+OB2:
+O92:
+O72:
+O62:
+O52:
+O42:
+O32:
+O22:
+O12:
+O02:            JMP     RESET           ;JAM *** HLT
+
+O64:
+O44:
+O04:            ADDR_ZP IRQTST          ;SKB zp *** NOP2/NOOP
+
+O0C:            ADDR_ABS O0C_3          ;SKW abs *** NOP3/NOOP
+O0C_3:          ADDR_ABS3 IRQTST
+
+OE2:
+OC2:
+O89:
+O82:
+O80:            INC     [PC]            ;SKB im *** NOP2/NOOP
+                JMP     IRQTST
+
+OF4:
+OD4:
+O74:
+O54:
+O34:
+O14:            ADDR_ZP O14_3           ;SKB zp,X *** NOP2/NOOP
+O14_3:          ADDR_ZPX IRQTST
+
+OFC:
+ODC:
+O7C:
+O5C:
+O3C:
+O1C:            ADDR_ABS O1C_3          ;SKW abs,X *** NOP3/NOOP
+O1C_3:          ADDR_ABS3 O1C_4
+O1C_4:          ADDR_ABS4I IRQTST,XR
+
+O03:            ADDR_IZP O03_3          ;ASL:ORA (zp,X) *** ASO/SLO
+O03_3:          ADDR_IZP3X O03_4
+O03_4:          ADDR_IZP34 O03_5
+O03_5:          ADDR_IZP45 O03_6
+O03_6:          RMW1    O03_7,T2ADDR
+
+                DB      'W'
+O03_7:          RMW2    O03_8,T2ADDR
+
+                DB      'W'
+O03_8:          MOV     BX,[T2ADDR]
+                MOV     DH,[TMPCPUV]
+                AND     [SR],7CH
+                SHL     DH,1
+                ADC     [SR],0
+                CALL    MSTORE_DH
+                OR      [AC],DH
+                SETNZ
+
+O07:            ADDR_ZP O07_3           ;ASL:ORA zp *** ASO/SLO
+O07_3:          RMW1    O07_4
+
+                DB      'W'
+O07_4:          RMW2    O07_5
+
+                DB      'W'
+O07_5:          MOV     BX,[TADDR]
+                MOV     DH,[TMPCPUV]
+                AND     [SR],7CH
+                SHL     DH,1
+                ADC     [SR],0
+                CALL    MSTORE_DH
+                OR      [AC],DH
+                SETNZ
+
+O0F:            ADDR_ABS O0F_3          ;ASL:ORA abs *** ASO/SLO
+O0F_3:          ADDR_ABS3 O07_3
+
+O13:            ADDR_IZP O13_3          ;ASL:ORA (zp),Y *** ASO/SLO
+O13_3:          ADDR_IZP34 O13_4
+O13_4:          ADDR_IZP45 O13_5
+O13_5:          ADDR_IZP5 O03_6
+
+O17:            ADDR_ZP O17_3           ;ASL:ORA zp,X *** ASO/SLO
+O17_3:          ADDR_ZPX O07_3
+
+O1B:            ADDR_ABS O1B_3          ;ASL:ORA abs,Y *** ASO/SLO
+O1B_3:          ADDR_ABS3 O1B_4
+O1B_4:          ADDR_ABS4Y O07_3
+
+O1F:            ADDR_ABS O1F_3          ;ASL:ORA abs,X *** ASO/SLO
+O1F_3:          ADDR_ABS3 O1F_4
+O1F_4:          ADDR_ABS4X O07_3
+
+O23:            ADDR_IZP O23_3          ;ROL:AND (zp,X) *** RLA
+O23_3:          ADDR_IZP3X O23_4
+O23_4:          ADDR_IZP34 O23_5
+O23_5:          ADDR_IZP45 O23_6
+O23_6:          RMW1    O23_7,T2ADDR
+
+                DB      'W'
+O23_7:          RMW2    O23_8,T2ADDR
+
+                DB      'W'
+O23_8:          MOV     BX,[T2ADDR]
+                MOV     DH,[TMPCPUV]
+                AND     [SR],7DH
+                BTR     WORD [SR],0
+                RCL     DH,1
+                ADC     [SR],0
+                CALL    MSTORE_DH
+                AND     [AC],DH
+                SETNZ
+
+O27:            ADDR_ZP O27_3           ;ROL:AND zp *** RLA
+O27_3:          RMW1    O27_4
+
+                DB      'W'
+O27_4:          RMW2    O27_5
+
+                DB      'W'
+O27_5:          MOV     BX,[TADDR]
+                MOV     DH,[TMPCPUV]
+                AND     [SR],7DH
+                BTR     WORD [SR],0
+                RCL     DH,1
+                ADC     [SR],0
+                CALL    MSTORE_DH
+                AND     [AC],DH
+                SETNZ
+
+O2F:            ADDR_ABS O2F_3          ;ROL:AND abs *** RLA
+O2F_3:          ADDR_ABS3 O27_3
+
+O33:            ADDR_IZP O33_3          ;ROL:AND (zp),Y *** RLA
+O33_3:          ADDR_IZP34 O33_4
+O33_4:          ADDR_IZP45 O33_5
+O33_5:          ADDR_IZP5 O23_6
+
+O37:            ADDR_ZP O37_3           ;ROL:AND zp,X *** RLA
+O37_3:          ADDR_ZPX O27_3
+
+O3B:            ADDR_ABS O3B_3          ;ROL:AND abs,Y *** RLA
+O3B_3:          ADDR_ABS3 O3B_4
+O3B_4:          ADDR_ABS4Y O27_3
+
+O3F:            ADDR_ABS O3F_3          ;ROL:AND abs,X *** RLA
+O3F_3:          ADDR_ABS3 O3F_4
+O3F_4:          ADDR_ABS4X O27_3
+
+O43:            ADDR_IZP O43_3          ;LSR:EOR (zp,X) *** LSE/LRE/SRE
+O43_3:          ADDR_IZP3X O43_4
+O43_4:          ADDR_IZP34 O43_5
+O43_5:          ADDR_IZP45 O43_6
+O43_6:          RMW1    O43_7,T2ADDR
+
+                DB      'W'
+O43_7:          RMW2    O43_8,T2ADDR
+
+                DB      'W'
+O43_8:          MOV     BX,[T2ADDR]
+                MOV     DH,[TMPCPUV]
+                AND     [SR],7CH
+                SHR     DH,1
+                ADC     [SR],0
+                CALL    MSTORE_DH
+                XOR     [AC],DH
+                SETNZ
+
+O47:            ADDR_ZP O47_3           ;LSR:EOR zp *** LSE/LRE/SRE
+O47_3:          RMW1    O47_4
+
+                DB      'W'
+O47_4:          RMW2    O47_5
+
+                DB      'W'
+O47_5:          MOV     BX,[TADDR]
+                MOV     DH,[TMPCPUV]
+                AND     [SR],7CH
+                SHR     DH,1
+                ADC     [SR],0
+                CALL    MSTORE_DH
+                XOR     [AC],DH
+                SETNZ
+
+O4F:            ADDR_ABS O4F_3          ;LSR:EOR abs *** LSE/LRE/SRE
+O4F_3:          ADDR_ABS3 O47_3
+
+O53:            ADDR_IZP O53_3          ;LSR:EOR (zp),Y *** LSE/LRE/SRE
+O53_3:          ADDR_IZP34 O53_4
+O53_4:          ADDR_IZP45 O53_5
+O53_5:          ADDR_IZP5 O43_6
+
+O57:            ADDR_ZP O57_3           ;LSR:EOR zp,X *** LSE/LRE/SRE
+O57_3:          ADDR_ZPX O47_3
+
+O5B:            ADDR_ABS O5B_3          ;LSR:EOR abs,Y *** LSE/LRE/SRE
+O5B_3:          ADDR_ABS3 O5B_4
+O5B_4:          ADDR_ABS4Y O47_3
+
+O5F:            ADDR_ABS O5F_3          ;LSR:EOR abs,X *** LSE/LRE/SRE
+O5F_3:          ADDR_ABS3 O5F_4
+O5F_4:          ADDR_ABS4X O47_3
+
+O63:            ADDR_IZP O63_3          ;ROR:ADC (zp,X) *** RRA
+O63_3:          ADDR_IZP3X O63_4
+O63_4:          ADDR_IZP34 O63_5
+O63_5:          ADDR_IZP45 O63_6
+O63_6:          RMW1    O63_7,T2ADDR
+
+                DB      'W'
+O63_7:          RMW2    O63_8,T2ADDR
+
+                DB      'W'
+O63_8:          MOV     BX,[T2ADDR]
+                MOV     DH,[TMPCPUV]
+                BTR     WORD [SR],0
+                RCR     DH,1
+                ADC     [SR],0
+                CALL    MSTORE_DH
+                ADDITION
+
+O67:            ADDR_ZP O67_3           ;ROR:ADC zp *** RRA
+O67_3:          RMW1    O67_4
+
+                DB      'W'
+O67_4:          RMW2    O67_5
+
+                DB      'W'
+O67_5:          MOV     BX,[TADDR]
+                MOV     DH,[TMPCPUV]
+                BTR     WORD [SR],0
+                RCR     DH,1
+                ADC     [SR],0
+                CALL    MSTORE_DH
+                ADDITION
+
+O6F:            ADDR_ABS O6F_3          ;ROR:ADC abs *** RRA
+O6F_3:          ADDR_ABS3 O67_3
+
+O73:            ADDR_IZP O73_3          ;ROR:ADC (zp),Y *** RRA
+O73_3:          ADDR_IZP34 O73_4
+O73_4:          ADDR_IZP45 O73_5
+O73_5:          ADDR_IZP5 O63_6
+
+O77:            ADDR_ZP O77_3           ;ROR:ADC zp,X *** RRA
+O77_3:          ADDR_ZPX O67_3
+
+O7B:            ADDR_ABS O7B_3          ;ROR:ADC abs,Y *** RRA
+O7B_3:          ADDR_ABS3 O7B_4
+O7B_4:          ADDR_ABS4Y O67_3
+
+O7F:            ADDR_ABS O7F_3          ;ROR:ADC abs,X *** RRA
+O7F_3:          ADDR_ABS3 O7F_4
+O7F_4:          ADDR_ABS4X O67_3
+
+O83:            ADDR_IZP O83_3          ;AXS (zp,X) *** SXS/SAX
+O83_3:          ADDR_IZP3X O83_4        ;(X & A) -> M
+O83_4:          ADDR_IZP34 O83_5
+O83_5:          ADDR_IZP45 O83_6
+
+                DB      'W'
+O83_6:          MOV     BX,[T2ADDR]
+                MOV     DH,[AC]
+                AND     DH,[XR]
+                CALL    MSTORE_DH
+                JMP     IRQTST
+
+O87:            ADDR_ZP O87_3           ;AXS zp *** SXS/SAX
+
+                DB      'W'
+O87_3:          MOV     BX,[TADDR]      ;(X & A) -> M
+                MOV     DH,[AC]
+                AND     DH,[XR]
+                CALL    MSTORE_DH
+                JMP     IRQTST
+
+O8F:            ADDR_ABS O8F_3          ;AXS abs *** SXS/SAX
+O8F_3:          ADDR_ABS3 O87_3         ;(X & A) -> M
+
+O97:            ADDR_ZP O97_3           ;AXS zp,Y *** SXS/SAX
+O97_3:          ADDR_ZPY O87_3          ;(X & A) -> M
+
+OA3:            ADDR_IZP OA3_3          ;LDA:LDX (zp,X) *** LAX
+OA3_3:          ADDR_IZP3X OA3_4
+OA3_4:          ADDR_IZP34 OA3_5
+OA3_5:          ADDR_IZP45 OA3_6
+OA3_6:          MOV     BX,[T2ADDR]
+                CALL    MREAD_DH
+                MOV     [AC],DH
+                MOV     [XR],DH
+                AND     [SR],7DH
+                OR      DH,DH
+                SETNZ
+
+OA7:            ADDR_IZP OA7_3          ;LDA:LDX zp *** LAX
+OA7_3:          MOV     BX,[TADDR]
+                CALL    MREAD_DH
+                MOV     [AC],DH
+                MOV     [XR],DH
+                AND     [SR],7DH
+                OR      DH,DH
+                SETNZ
+
+OAF:            ADDR_ABS OAF_3          ;LDA:LDX abs *** LAX
+OAF_3:          ADDR_ABS3 OA7_3
+
+OB3:            ADDR_IZP OB3_3          ;LDA:LDX (zp),Y *** LAX
+OB3_3:          ADDR_IZP34 OB3_4
+OB3_4:          ADDR_IZP45 OB3_5
+OB3_5:          ADDR_IZP5Y OA3_6
+
+OB7:            ADDR_ZP OB7_3           ;LDA:LDX zp,Y *** LAX
+OB7_3:          ADDR_ZPY OA7_3
+
+OBF:            ADDR_ABS OBF_3          ;LDA:LDX abs,Y *** LAX
+OBF_3:          ADDR_ABS3 OBF_4
+OBF_4:          ADDR_ABS4I OA7_3,YR
+
+OC3:            ADDR_IZP OC3_3          ;DEC:CMP (zp,X) *** DCC/DCP/DCM
+OC3_3:          ADDR_IZP3X OC3_4
+OC3_4:          ADDR_IZP34 OC3_5
+OC3_5:          ADDR_IZP45 OC3_6
+OC3_6:          RMW1    OC3_7,T2ADDR
+
+                DB      'W'
+OC3_7:          RMW2    OC3_8,T2ADDR
+
+                DB      'W'
+OC3_8:          MOV     BX,[T2ADDR]
+                MOV     DH,[TMPCPUV]
+                DEC     DH
+                CALL    MSTORE_DH
+                COMPARE AC
+
+OC7:            ADDR_ZP OC7_3           ;DEC:CMP zp *** DCC/DCP/DCM
+OC7_3:          RMW1    OC7_4
+
+                DB      'W'
+OC7_4:          RMW2    OC7_5
+
+                DB      'W'
+OC7_5:          MOV     BX,[TADDR]
+                MOV     DH,[TMPCPUV]
+                DEC     DH
+                CALL    MSTORE_DH
+                COMPARE AC
+
+OCF:            ADDR_ABS OCF_3          ;DEC:CMP abs *** DCC/DCP/DCM
+OCF_3:          ADDR_ABS3 OC7_3
+
+OD3:            ADDR_IZP OD3_3          ;DEC:CMP (zp),Y *** DCC/DCP/DCM
+OD3_3:          ADDR_IZP34 OD3_4
+OD3_4:          ADDR_IZP45 OD3_5
+OD3_5:          ADDR_IZP5 OC3_6
+
+OD7:            ADDR_ZP OD7_3           ;DEC:CMP zp,X *** DCC/DCP/DCM
+OD7_3:          ADDR_ZPX OC7_3
+
+ODB:            ADDR_ABS ODB_3          ;DEC:CMP abs,Y *** DCC/DCP/DCM
+ODB_3:          ADDR_ABS3 ODB_4
+ODB_4:          ADDR_ABS4Y OC7_3
+
+ODF:            ADDR_ABS ODF_3          ;DEC:CMP abs,X *** DCC/DCP/DCM
+ODF_3:          ADDR_ABS3 ODF_4
+ODF_4:          ADDR_ABS4X OC7_3
+
+OE3:            ADDR_IZP OE3_3          ;INC:SBC (zp,X) *** INS/ISB/ISC
+OE3_3:          ADDR_IZP3X OE3_4
+OE3_4:          ADDR_IZP34 OE3_5
+OE3_5:          ADDR_IZP45 OE3_6
+OE3_6:          RMW1    OE3_7,T2ADDR
+
+                DB      'W'
+OE3_7:          RMW2    OE3_8,T2ADDR
+
+                DB      'W'
+OE3_8:          MOV     BX,[T2ADDR]
+                MOV     DH,[TMPCPUV]
+                INC     DH
+                CALL    MSTORE_DH
+                SUBTRACTION
+
+OE7:            ADDR_ZP OE7_3           ;INC:SBC zp *** INS/ISB/ISC
+OE7_3:          RMW1    OE7_4
+
+                DB      'W'
+OE7_4:          RMW2    OE7_5
+
+                DB      'W'
+OE7_5:          MOV     BX,[TADDR]
+                MOV     DH,[TMPCPUV]
+                INC     DH
+                CALL    MSTORE_DH
+                SUBTRACTION
+
+OEF:            ADDR_ABS OEF_3          ;INC:SBC abs *** INS/ISB/ISC
+OEF_3:          ADDR_ABS3 OE7_3
+
+OF3:            ADDR_IZP OF3_3          ;INC:SBC (zp),Y *** INS/ISB/ISC
+OF3_3:          ADDR_IZP34 OF3_4
+OF3_4:          ADDR_IZP45 OF3_5
+OF3_5:          ADDR_IZP5 OE3_6
+
+OF7:            ADDR_ZP OF7_3           ;INC:SBC zp,X *** INS/ISB/ISC
+OF7_3:          ADDR_ZPX OE7_3
+
+OFB:            ADDR_ABS OFB_3          ;INC:SBC abs,Y *** INS/ISB/ISC
+OFB_3:          ADDR_ABS3 OFB_4
+OFB_4:          ADDR_ABS4Y OE7_3
+
+OFF:            ADDR_ABS OFF_3          ;INC:SBC abs,X *** INS/ISB/ISC
+OFF_3:          ADDR_ABS3 OFF_4
+OFF_4:          ADDR_ABS4X OE7_3
+
+O2B:
+O0B:            ADDR_IM                 ;ANC im ***
+                AND     [SR],7CH
+                AND     [AC],DH
+                JNZ     .L1
+
+                OR      [SR],2
+.L1:            JNS     IRQTST
+
+                OR      [SR],81H
+                JMP     IRQTST
+
+O4B:            ADDR_IM                 ;AND im:LSR ac *** ALR/ADL/ASR
+                AND     [SR],7CH
+                AND     [AC],DH
+                SHR     [AC],1
+                ADC     [SR],0
+                OR      [AC],0
+                SETNZ
+
+O6B:            ADDR_IM                 ;AND im:ROR ac *** ARR/ADR
+                AND     [SR],3DH
+                AND     [AC],DH
+                TEST    [SR],8          ;D-flag?
+                JNZ     .DECI
+
+                BTR     WORD [SR],0     
+                RCR     [AC],1
+                BT      WORD [AC],6
+                ADC     [SR],0          ;SET CF
+                TEST    [AC],60H
+                JPE     .L1
+
+                OR      [SR],40H        ;SET OF
+.L1:            OR      [AC],0
+                SETNZ
+
+.DECI:          MOV     BL,[AC]
+                MOV     BH,BL
+                AND     BX,0F00FH
+                BTR     WORD [SR],0
+                JNC     .L6
+
+                OR      [SR],80H        ;SET NF
+                STC
+.L6:            RCR     [AC],1
+                TEST    [AC],60H
+                JPE     .L7
+
+                OR      [SR],40H        ;SET OF
+.L7:            OR      [AC],0
+                JNZ     .L8
+
+                OR      [SR],2          ;SET ZF
+.L8:            BT      BX,0
+                ADC     BL,0
+                CMP     BL,5
+                JBE     .L2
+
+                MOV     BL,[AC]
+                ADD     BL,6
+                AND     BL,0FH
+                AND     [AC],0F0H
+                ADD     [AC],BL
+
+.L2:            SHR     BH,4
+                BT      BX,8
+                ADC     BH,0
+                CMP     BH,5
+                JBE     .L3
+
+                INC     [SR]            ;SET CF
+                ADD     [AC],60H
+.L3:            JMP     IRQTST
+
+O93:            ADDR_IZP O93_3          ;SHA (zp),Y *** AXA
+O93_3:          ADDR_IZP34 O93_4        ;A & X & (ZP_ADDR+1) ->M
+O93_4:          ADDR_IZP45 O93_5
+O93_5:          MOV     AL,BYTE [T2ADDR+1]
+                MOV     [TMPCPUV],AL
+                ADDR_IZP5 O93_6
+
+                DB      'W'
+O93_6:          MOV     BX,[T2ADDR]
+                MOV     DH,[TMPCPUV]
+                INC     DH
+                AND     DH,[AC]
+                AND     DH,[XR]
+                CALL    MSTORE_DH
+                JMP     IRQTST
+
+O9F:            ADDR_ABS O9F_3          ;SHA abs,Y *** AXA
+O9F_3:          ADDR_ABS3 O9F_4         ;AC & XR & (ADDR_HI+1) -> M
+O9F_4:          MOV     AL,BYTE [TADDR+1]
+                INC     AX
+                MOV     [TMPCPUV],AL
+                ADDR_ABS4Y O9F_5
+
+                DB      'W'
+O9F_5:          MOV     BX,[TADDR]
+                MOV     DH,[TMPCPUV]
+                AND     DH,[AC]
+                AND     DH,[XR]
+                CALL    MSTORE_DH
+                JMP     IRQTST
+
+O9C:            ADDR_ABS O9C_3          ;SHY abs,X *** SAY
+O9C_3:          ADDR_ABS3 O9C_4         ;YR & (ADDR_HI+1) -> M
+O9C_4:          MOV     AL,BYTE [TADDR+1]
+                INC     AX
+                MOV     [TMPCPUV],AL
+                ADDR_ABS4X O9C_5
+
+                DB      'W'
+O9C_5:          MOV     BX,[TADDR]
+                MOV     DH,[TMPCPUV]
+                AND     DH,[YR]
+                CALL    MSTORE_DH
+                JMP     IRQTST
+
+O9B:            ADDR_ABS O9B_3          ;SHS abs,Y *** TAS
+O9B_3:          ADDR_ABS3 O9B_4         ;AC & XR -> SPR
+O9B_4:          MOV     AL,BYTE [TADDR+1]       ;SPR & (ADDR_HI+1) -> M
+                INC     AX
+                MOV     [TMPCPUV],AL
+                ADDR_ABS4Y O9B_5
+
+                DB      'W'
+O9B_5:          MOV     BX,[TADDR]
+                MOV     DH,[AC]
+                AND     DH,[XR]
+                MOV     BYTE [SPR],DH
+                AND     DH,[TMPCPUV]
+                CALL    MSTORE_DH
+                JMP     IRQTST
+
+O9E:            ADDR_ABS O9E_3          ;SHX abs,Y *** XAS
+O9E_3:          ADDR_ABS3 O9E_4         ;XR & (ADDR_HI+1) -> M
+O9E_4:          MOV     AL,BYTE [TADDR+1]
+                INC     AX
+                MOV     [TMPCPUV],AL
+                ADDR_ABS4Y O9E_5
+
+                DB      'W'
+O9E_5:          MOV     BX,[TADDR]
+                MOV     DH,[TMPCPUV]
+                AND     DH,[XR]
+                CALL    MSTORE_DH
+                JMP     IRQTST
+
+OAB:            ADDR_IM                 ;LXA im *** OAL
+                AND     [SR],7DH
+                OR      [AC],0EEH
+                AND     [AC],DH
+                MOV     AL,[AC]
+                MOV     [XR],AL
+                SETNZ
+
+OCB:            ADDR_IM                 ;SBX im *** SAX
+                AND     [SR],7CH        ;XR & AC - IM -> XR
+                MOV     AL,[AC]
+                AND     AL,[XR]
+                SUB     AL,DH
+                CMC
+                ADC     [SR],0
+                MOV     [XR],AL
+                OR      AL,AL
+                SETNZ
+
+OBB:            ADDR_ABS OBB_3          ;LAS abs,Y ***
+OBB_3:          ADDR_ABS3 OBB_4         ;M & SPR -> AC,XR,SPR
+OBB_4:          ADDR_ABS4I OBB_5,YR
+OBB_5:          MOV     BX,[TADDR]
+                AND     [SR],7DH
+                CALL    MREAD_DH
+                AND     DH,BYTE [SPR]
+                MOV     [AC],DH
+                MOV     [XR],DH
+                MOV     BYTE [SPR],DH
+                SETNZ
+
+O8B:            ADDR_IM                 ;TXA:AND im *** TAA/ANE
+                AND     [SR],7DH
+                OR      [AC],0EEH
+                MOV     AL,[XR]
+                AND     AL,DH
+                AND     [AC],AL
+                SETNZ
+
+CPUCYCLE_F:     CMP     [TICKS],0
+                JE      .L1
+                JS      .L2
+
+                DEC     [TICKS]
+.L4:            CALL    [CPUOP]
+                INC     [T_CLOCK_SUM]   ;FOR T COMMAND
+.L1:            RETF
+
+.L2:            MOV     BX,[CPUOP]
+		MOV     [TICKS],0
+                CMP     BYTE [CS:BX-1],'W'
+                JNZ     .L1
+
+                JMP     .L4
+

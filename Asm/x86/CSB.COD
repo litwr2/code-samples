@@ -1,0 +1,8 @@
+CSB_IO_WR:      RETN
+
+CSB_IO_RD:      MOV     AL,[CPU_0]
+                XOR     AL,0C0H
+                AND     AL,0C0H
+                OR      [CPU_1],AL
+                RETN
+

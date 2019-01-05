@@ -1,0 +1,14 @@
+Package: xlife-7.0.0
+Version: 7.0.0~beta
+Architecture: amd64
+Maintainer: Vol <vol.litwr@gmail.com>
+Depends: libc6, libstdc++6, libx11-6, libxcb1, libxau6, libxdmcp6, libbsd0, libgcc1, libxext6, gawk
+Section: contrib/misc
+Priority: optional
+Description: Cellular Automaton Laboratory
+ This program evolves patterns for John Horton Conway's game of Life. 
+ It will also handle general cellular automata with the various
+ neighborhoods and up to 256 states, a whole class of `Prisoner's
+ Dilemma' games, and many others.  It supports the improved Jon
+ Bennet's algorithms and hash life algorithms.  It has a lot of
+ features to work with artificial life forms.

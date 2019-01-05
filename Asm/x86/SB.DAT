@@ -1,0 +1,12 @@
+                ALIGN   2
+SB_SUM          DW      0
+DSP_WRITE       DW      020CH
+;DSP_READ        DW      020AH
+DSP_RESET       DW      0206H
+;DSP_ST          DW      020EH
+SB_ST           DB      0
+SB_SOUND        DB      0
+SB_CH           DB      0
+SB_VOL          DB      0,16,32,48,64,80,96,112,128
+                DB      144,160,176,192,208,224,240,255
+SB_CNT          DB      0

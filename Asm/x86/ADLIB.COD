@@ -1,0 +1,229 @@
+RESET_ADLIB:    IRPA    1,8,20H,23H,31H,34H,1040H,43H,1051H,54H,0F060H,0F063H
+                IRPA    0F071H,0F074H,1F80H,1F83H,1F91H,1F94H,0B0H,0B7H
+                IRPA    0BDH,0C0H,0C7H
+                RETN
+
+ADLIB_0E:       PUSH    DX
+                PUSH    BX
+                PUSH    AX
+                MOV     DL,[TED_12]
+                XCHG    DL,DH
+                CALL    ADLIB_SFREQ
+                MOV     BH,AH
+                MOV     BL,DL
+                MOV     AH,0A0H
+                XCHG    AL,AH
+                CALL    OUT_ADLIB
+                MOV     AH,[TED_11]
+                AND     AH,10H
+                MOV     [ADLIB_HI1],BH
+                SHL     AH,1
+                OR      AH,BH
+                MOV     AL,0B0H
+                CALL    OUT_ADLIB
+                MOV     AL,20H
+                MOV     AH,BL
+                CALL    OUT_ADLIB
+                MOV     AL,23H
+                MOV     AH,BL
+                CALL    OUT_ADLIB
+                POP     AX
+                POP     BX
+                POP     DX
+                RETN
+
+ADLIB_0F:       PUSH    DX
+                PUSH    BX
+                PUSH    AX
+                MOV     DL,[TED_10]
+                XCHG    DL,DH
+                CALL    ADLIB_SFREQ
+                MOV     BH,AH
+                MOV     BL,DL
+                MOV     AH,0A7H
+                XCHG    AL,AH
+                CALL    OUT_ADLIB
+                MOV     AH,[TED_11]
+                MOV     [ADLIB_HI2],BH
+                AND     AH,20H
+                OR      AH,BH
+                MOV     AL,0B7H
+                CALL    OUT_ADLIB
+                MOV     AL,34H
+                MOV     AH,BL
+                CALL    OUT_ADLIB
+                MOV     AL,31H
+                MOV     AH,BL
+                CALL    OUT_ADLIB
+                POP     AX
+                POP     BX
+                POP     DX
+                RETN
+
+ADLIB_10:       PUSH    DX
+                PUSH    BX
+                PUSH    AX
+                MOV     DL,[TED_F]
+                CALL    ADLIB_SFREQ
+                MOV     BH,AH
+                MOV     BL,DL
+                MOV     AH,0A7H
+                XCHG    AL,AH
+                CALL    OUT_ADLIB
+                MOV     AH,[TED_11]
+                MOV     [ADLIB_HI2],BH
+                AND     AH,20H
+                OR      AH,BH
+                MOV     AL,0B7H
+                CALL    OUT_ADLIB
+                MOV     AL,34H
+                MOV     AH,BL
+                CALL    OUT_ADLIB
+                MOV     AL,31H
+                MOV     AH,BL
+                CALL    OUT_ADLIB
+                POP     AX
+                POP     BX
+                POP     DX
+                RETN
+
+ADLIB_11:       PUSH    DX
+                PUSH    AX
+                MOV     BL,DH
+                AND     BX,0FH
+                MOV     AH,[ADLIB_VOL+BX]
+                TEST    DH,80H
+                JZ      .L1
+
+                MOV     AH,3FH          ;63
+.L1:            MOV     BH,AH
+                XCHG    BL,DH
+                MOV     AL,43H
+                CALL    OUT_ADLIB
+                MOV     AL,54H
+                MOV     AH,BH
+                CALL    OUT_ADLIB
+                
+                MOV     AH,[ADLIB_HI1]
+                MOV     AL,0B0H
+                TEST    BL,10H
+                JZ      .L2
+
+                OR      AH,020H
+.L2:            CALL    OUT_ADLIB
+
+                MOV     AH,[ADLIB_HI2]
+                MOV     AL,0B7H
+                TEST    BL,20H
+                JZ      .L3
+
+                OR      AH,20H
+                CALL    OUT_ADLIB
+                MOV     AX,0BDH
+                JMP     .L4
+
+.L3:            CALL    OUT_ADLIB
+                MOV     AX,28BDH
+                TEST    BL,40H
+                JNZ     .L4
+
+                XOR     AH,AH
+.L4:            CALL    OUT_ADLIB
+                POP     AX
+                POP     DX
+                MOV     BX,0FF11H
+                RETN
+
+ADLIB_12:       PUSH    DX
+                PUSH    BX
+                PUSH    AX
+                MOV     DL,[TED_E]
+                CALL    ADLIB_SFREQ
+                MOV     BH,AH
+                MOV     BL,DL
+                MOV     AH,0A0H
+                XCHG    AL,AH
+                CALL    OUT_ADLIB
+                MOV     AH,[TED_11]
+                AND     AH,10H
+                MOV     [ADLIB_HI1],BH
+                SHL     AH,1
+                OR      AH,BH
+                MOV     AL,0B0H
+                CALL    OUT_ADLIB
+                MOV     AL,20H
+                MOV     AH,BL
+                CALL    OUT_ADLIB
+                MOV     AL,23H
+                MOV     AH,BL
+                CALL    OUT_ADLIB
+                POP     AX
+                POP     BX
+                POP     DX
+                RETN
+
+OUT_ADLIB:      MOV     DX,388H         ;AL-INDEX,AH-VALUE
+                CLI
+                OUT     DX,AL
+                PUSH    AX
+                MOV     AH,2    ;6
+.L1:            IN      AL,DX
+                DEC     AH
+                JNZ     .L1
+
+                POP     AX
+                MOV     AL,AH
+                INC     DX
+                OUT     DX,AL
+                MOV     AH,8     ;36
+                DEC     DX
+.L2:            IN      AL,DX
+                DEC     AH
+                JNZ     .L2
+
+                STI
+                RETN
+
+ADLIB_SFREQ:;    INC     DX
+                AND     DH,3            ;DX - COMMODORE SOUND FREQ DETERMINANT
+
+                cmp     dx,3fdh
+                jb      .l9
+                mov     ax,1fffh
+                mov     dl,15
+                retn
+.l9:
+                MOV     BX,1024
+                SUB     BX,DX
+                MOV     EAX,SOUND_CONST
+                XOR     EDX,EDX
+                DIV     EBX
+                SHL     DX,1
+                CMP     BX,DX
+                JA      .L1
+
+                INC     EAX
+.L1:            IMUL    EAX,675
+                XOR     DX,DX
+                SHR     EAX,5
+.L2:            INC     DH
+                SHR     EAX,1
+                CMP     EAX,1024
+                JAE     .L2
+
+                INC     DL
+.L4:            CMP     DH,7
+                JBE     .L3
+
+                DEC     DH
+                SHL     DL,1
+                JMP     .L4
+
+.L3:            CMP     DL,8
+                JBE     .L5
+
+                MOV     DL,15
+.L5:            SHL     DH,2
+                OR      AH,DH
+                RETN                    ; AX-FNUM&BLOCK, DL-MULTIPLIER
+

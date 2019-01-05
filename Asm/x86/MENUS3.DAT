@@ -1,0 +1,54 @@
+CP_IN_WIN4      DB      0
+CP_IN_WIN5U     DB      0
+CP_IN_WIN5D     DB      0
+CP_IN_WIN5X     DB      0
+CP_IN_WIN5Y     DB      0
+CP_IN_WIN6      DB      0
+CP_IN_WIN7      DB      0
+CP_IN_WIN8      DB      0
+CP_IN_WIN9      DB      0
+CP_IN_WIN10     DB      0
+CP_IN_WIN11     DB      0
+M3_MSG1         DB      '       '
+M3_MSG3         DB      'ENTER FILENAME '
+M3_MSG5         DB      'DISK TAPE '
+M3_MSG6         DB      'SELECT MEDIA TYPE '
+M3_MSG7         DB      'JOYSTICK1:  KEYS1  KEYS2  PORT1  PORT2  NONE  '
+                DB      'JOYSTICK2:  KEYS1  KEYS2  PORT1  PORT2  NONE  '
+                DB      'JOYSTICK(S) MUST BE CENTERED FOR CALIBRATION  '
+M3_MSG8         DB      'OK '
+M3_MSG9         DB      'ARE YOU SURE? '
+M3_MSG10        DB      'YES NO  '
+M3_MSG11        DB      'DELETE'
+M3_MSG12        DB      '*  8  9 '
+M3_MSG14        DB      'DEVICE?'
+M3_MSG15        DB      '  VIDEO   '
+                DB      'FRMS.SKIP '
+                DB      '  SOUND   '
+                DB      '--------- '
+                DB      '  SAVE    '
+M3_MSG16        DB      '0+ 320x200 VGA '
+                DB      '1+ 320x240 VGA '
+                DB      '2+ 320x350 VGA '
+                DB      '3+ 320x400 VGA '
+                DB      '4+ 360x240 VGA '
+                DB      '5+ 360x400 VGA '
+                DB      '6+ 400x300 SVGA'
+                DB      '7- 320x200 VBE '
+                DB      '8- 400x300 VBE '
+                DB      '9- 640x400 VBE '
+                DB      'A- 640x480 VBE '
+M3_MSG17        DB      '0+ SPEAKER  '
+                DB      '1  ADLIB    '
+                DB      '2+ NOTNING  '
+                DB      '3- S.BLASTER'
+M3_MSG18        DB      'NONE  2/3  4/5  6/7 '
+CHR_TRT1        DB      0,0,'1234567890-=',8,0,'QWERTYUIOP',0,0
+                DB      13,0,'ASDFGHJKL;',0,0,0,'\ZXCVBNM,./'
+                DB      0,0,0,' '
+TIMES   22      DB      0
+CHR_TRT2        DB      0,0,'!@#$%^&8()_+',8,0,'QWERTYUIOP',0,0
+                DB      13,0,'ASDFGHJKL:',0,0,0,'|ZXCVBNM<>?'
+                DB      0,0,0,' '
+TIMES   22      DB      0
+

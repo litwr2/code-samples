@@ -1,0 +1,52 @@
+                            XLife Menu/Help
+     Screen Painting                          Load Mode
+Draw cell             Button 1        Move                   Button 1
+Delete cell           Button 2        Flip                   Button 2
+Select pattern        Button 3        Rotate                 Button 3
+Clear                      C          Generate                    G
+Load pattern               l          Undo load                   U
+Scatter at random          !          Incorporate                 I
+Set density for !          %          Copy/Duplicate pattern      d
+Set seed for randomgen     ^          Undo pattern manipulations  u
+Wireframe pattern          #          Reload pattern              L
+Show active cells borders  b          Set pivot position          x
+Toggle grid                M          Yank out active pattern     Y
+Pick up color              k          Load palette                X
+Reset palette              Z
+
+   Viewpoint Changes                      Viewpoint Movement
+Redraw screen              r                          7 8 9
+Zoom in                  + =                           \|/
+Zoom out                   -                  (Shift) 4-+-6
+Center on cursor (Button 3).                           /|\ 
+Hide                       h                          1 2 3
+Position on/off            p          Center/Median on live cells 5/0
+Cell count on/off          c          Goto next object            n
+Set origin                 O          Set marks                  ([{
+Changes count on/off       $          Use marks                  )]}
+Pseudocolor mode (0..4)    E          Jump to a position          J
+History record             H
+
+   Pattern Evolution                        Rule Exploration
+Generate on/off            g          Change 2-state/named rules  R
+Evolve fast                f          Change topology             T
+Evolve medium speed        m          Load n-state rules          F
+Evolve slowly              s          Test n-state transition     t
+Increase/Decrease delay   <>          Add n-state transition      a
+One generation             o          Toggle history              @
+Set jump length for go     j
+Add/Remove thread         :;
+Set evolution counter      i                  Miscellanea
+Toggle hash algorithm      z          Help                        ?
+                                      Show cells stats            /
+  Load Script Commands                View state                  v
+Write to file              W          Oscillator check on/off     P
+Discard                    D          Save pattern                S
+Change internal file name  N          Benchmark                   B
+Add/View/Kill comments   A/V/K        Quit                        Q
+
+This program has been extensively hacked on by Jon Bennett, Paul
+Callahan, Achim Flammenkamp, Eric S. Raymond, Vladimir Lidovski,
+Yaroslav Zotov, and Chuck Silvers.
+
+Select an action or press any other key to continue

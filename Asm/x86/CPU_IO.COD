@@ -1,0 +1,25 @@
+DS_SOUND        EQU     0
+
+CPU_IO_WR:      TEST    [CPU1_XOR],0AH  ;bit 6 not implemented
+                JNZ     CDS_IO_WR
+
+                TEST    [CPU1_XOR],0C4H ;bits 0,1?
+                JNZ     CSB_IO_WR
+
+                RETN
+
+CPU_IO_RD:      CALL    CDS_IO_RD
+                CALL    CSB_IO_RD
+                MOV     DH,[CPU_1]
+        IF DS_SOUND
+                PUSH    AX              ;datasette tape sound
+                MOV     AH,DH
+                AND     AH,010H
+                IN      AL,61H
+                AND     AL,0FCH
+                SHR     AH,3
+                OR      AL,AH
+                OUT     61H,AL
+                POP     AX
+        END IF
+                RETN

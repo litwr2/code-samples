@@ -1,0 +1,33 @@
+AMSG            DB      'Commodore Plus/4 Emulator "Forever?" v1.42 VIII-2008, by V. Lidovski'
+                DB      0DH,0AH,'$'
+ERROR1          DB      'This program requires MS-DOS version 3.30 or higher'
+                DB      0AH,0Dh,'$'
+FMSG            DB      'Emulation''s finished, '
+                DB      'average frame rate -- 000.0Hz.',0DH,0AH,'$'
+USAGE           DB      'USAGE: plus4 [OPTIONS]',0DH,0AH
+                DB      'OPTIONS:  ? - show this help and exit',0DH,0AH
+                DB      '    FILENAME.EXT - EXT should be either',0DH,0AH
+                DB      '        PRG, P00 .. P09, D64, CTF, TAP, C2F, ROM, CFG',0DH,0AH
+                DB      '        D64 may be preceded by /8 (default) or /9 unit selector',0DH,0AH
+                DB      '        ROM may be preceded by /0 .. /7 slot selector (/4 is default)',0DH,0AH
+                DB      '             0 - BASIC ROM                     1 - KERNAL ROM',0DH,0AH
+                DB      '             2/3 - 3-PLUS-1 LOW/HIGH ROM       4/5 - CARTRIDGE #1 LOW/HIGH ROM',0DH,0AH
+                DB      '             6/7 - CARTRIDGE #2 LOW/HIGH ROM   8 - C1551 ROM',0DH,0AH
+                DB      '        FILENAME may be preceded by absolute or relative path',0DH,0AH
+                DB      '    VIDEOMODEvid - VIDEOMODE should be the number at range 0 .. 10:',0DH,0AH
+                DB      '        0 - 320x200 VGA (default)    1 - 320x240 VGA     2 - 320x350 VGA',0DH,0AH
+                DB      '        3 - 320x400 VGA              4 - 360x240 VGA     5 - 360x400 VGA',0DH,0AH
+                DB      '        6 - 400x300 Super VGA        7 - 320x200 VBE     8 - 400x300 VBE',0DH,0AH
+                DB      '        9 - 640x400 VBE              A - 640x480 VBE',0DH,0AH
+                DB      '   SOUNDMODEsnd - SOUNDMODE should be the number at range 0 .. 3:',0DH,0AH
+                DB      '             0 - PC Speaker (default)       1 - Adlib',0DH,0AH
+                DB      '             2 - no sound                   3 - Sound Blaster',0DH,0AH
+                DB      '   CURRENTDIR/',0DH,0AH
+                DB      'EXAMPLES:',0DH,0AH
+                DB      '   plus4 6vid 3snd disk1.d64 /9disk2.d64 tape.ctf shots/freezed.c2f',0DH,0AH
+                DB      '   plus4 plus4dir\ /6basic70.rom prog.p00 8vid',0DH,0AH,'$'
+SAVE23LO        DW      0
+SAVE23HI        DW      0
+SAVE24LO        DW      0
+SAVE24HI        DW      0
+BREAK_FLAG      DB      0
