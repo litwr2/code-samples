@@ -1,0 +1,94 @@
+003000.dat has two catalogs: for metadata and data.  Each catalog consists of file entries.  A metadata catalog starts at 0x1F5C00.  The sector size is equal to 1024.  Only entries marked by *-sign are used in the converter-program.
+
+Each entry of the metadata catalog has the next fields:
+
+offset	type 	value
+0	int32	a constant 4
+4	int32 	?
+8	int16	a constant 0
+A 	int32   a constant 0xAD0CDE5C
+0xE	int32	number of sectors for metadata (*)
+0x12	int32	number of sectors for data (*)
+0x16	int32	DOCID
+0x1A	int32	a constant 0
+0x1E	int32	a constant 0
+0x22	int32	a constant 0x270F
+0x26	int32	an address of corresponding entry in the data catalog in a number of sectors (*)
+0x2A	int32	a constant 0x270F
+0x2E	int32	a constant 0
+0x32	int32	a constant 0
+0x36	int32	a constant 0
+0x3A	int32	a constant 0
+0x3E	int32	a constant 0xB000000
+0x42	int32	?
+0x46	int8	a length of the first text field (a)
+0x47	int8	a length of the 2nd text field (b)
+0x48	int8	a length of the 3rd text field (c)
+0x49	int8	a length of the 4th text field (d)
+0x4a	str	the 1st text field
++a	str	the 2nd text field
++b	str	the 3rd text field
++c	str     the 4th text field
++d	int8	a constant '2'
++1	int8	a length of the index name field (e)
++1	str	the index name
++e	int8	a length of the indexed value (f)
++1	str	the indexed value
++f	int8	a constant '2'
++1	int8	a length of the 5th text field (g)
++1	str	the 5th text field 
++g	int8	a length of the text field containing data format name and file name (h)
++1	str	the text field containing a data format name and file name (a file name is kept after 'name=' text and before a quote)
++h	bytes	aligning data, they fill contents to the 32-bit word boundary (i)
++i	stream	data stream
+
+
+
+Each entry of the data catalog has the next fields:
+
+offset	type 	value
+0	int32	a constant 0x20000
+4	int32	a constant 0xAD0CDE5C
+8	int32	number of sectors for metadata
+0xC	int32	number of sectors for data
+0x10	int32	DOCID
+0x14	int32	a constant 0
+0x18	int32	a constant 0
+0x1C	int32	a constant 0x270F
+0x20	int32	an address of this entry in the data catalog in a number of sectors
+0x24	int32	a constant 0x270F
+0x28	int32	a constant 0
+0x2C	int32	a constant 0
+0x30	int32	a constant 0
+0x34	int32	a constant 0
+0x38	int32	a constant 0xB000000
+0x3c	int8	?file type
+0x3d	int8	?file subtype
+0x3e	int8	a constant 0
+0x3f	int8	?file type
+0x40	int8	a length of the first text field (a)
+0x41	int8	a length of the 2nd text field (b)
+0x42	int8	a length of the 3rd text field (c)
+0x43	int8	a length of the 4th text field (d)
+0x44	str	the 1st text field
++a	str	the 2nd text field
++b	str	the 3rd text field
++c	str     the 4th text field
++d	int8	a constant '2'
++1	int8	a length of the index name field (e)
++1	str	the index name
++e	int8	a length of the indexed value (f)
++1	str	the indexed value
++f	int8	a constant '2'
++1	int8	a length of the 5th text field (g)
++1	str	the 5th text field 
++g	int8	a length of the text field containing data format name and file name (h)
++1	str	the text field containing a data format name and file name (a file name is kept after 'name=' text and before a quote) (*)
++h	bytes	aligning data, they fill contents to the 32-bit word boundary (i)
++i	int32	a constant 0
++4	int32	an address of this entry in the data catalog in a number of sectors
++4	int32	?
++4	int32	?
++4	int32	an address of the corresponding data for this entry in a number of sectors (*)
++4	int32	a length of the corresponding data in bytes (*)
+
