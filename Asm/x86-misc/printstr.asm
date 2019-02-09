@@ -4,8 +4,8 @@ entry $
       call  printstr
       db "Hello World",10,0
 
-      xor edi,edi   ;код возврата
-      mov eax,60    ;завершить процесс
+      xor edi,edi   ;exit code
+      mov eax,60    ;finish this task
       syscall
 
 printstr:
