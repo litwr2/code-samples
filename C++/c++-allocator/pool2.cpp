@@ -11,20 +11,20 @@ class Pool {
    struct Link {Link *next;};
    static const unsigned chunksz = 8*1024;
    struct Chunk {
-      static const unsigned size = chunksz - sizeof(Chunk*); //выравнивание по границе страницы, 256 байт
+      static const unsigned size = chunksz - sizeof(Chunk*); //page alignment, 256 bytes
       Chunk *next;
       char mem[size];
    } *chunks;
-   Link *head;  //указатель на 1-й свободный элемент памяти
-   void grow();    //увеличение пула
+   Link *head;  //a pointer to the 1st free memory element
+   void grow();    //pool increase
 public:
    unsigned occupied; //should be private
    const unsigned esz;
    Pool(unsigned);
    ~Pool();
-   void* alloc();  //выделить память для элемента
-   void free(void*);  //помещение элемента обратно в пул свободной памяти
-   void print();  //распечатка пула
+   void* alloc();  //allocate memory for an element
+   void free(void*);  //to return element back to the free memory pool
+   void print();  //prints pool
 };
 void* Pool::alloc() {
    occupied++;
@@ -59,7 +59,7 @@ void Pool::grow() {
    Chunk *p = new Chunk;
    p->next = chunks;
    chunks = p;
-   const unsigned noe = Chunk::size/esz; //число элементов в куске, number of elements
+   const unsigned noe = Chunk::size/esz; //number of elements in a chunk
    char *start = p->mem, *last = start + (noe - 1)*esz;
    for (char *p = start; p < last; p += esz)
       ((Link*)p)->next = (Link*)(p + esz);
@@ -137,7 +137,7 @@ template<class T> struct Pool_alloc : allocator<T> {
          map_of_allocators[this] = sz;
       }
    }
-   ~Pool_alloc() {  //с минимальным вектор-интерфейсом
+   ~Pool_alloc() {  //minimal vector-interface
       map<void*, unsigned>::iterator p;
       unsigned sz = 0;
       if ((p  = map_of_allocators.find(this)) == map_of_allocators.end() || pools[sz = p->second]->occupied)
