@@ -1,7 +1,6 @@
 /*
 2. TASK 2
 
-
 Given a collection of intervals, merge all overlapping intervals.
 
 For example,
