@@ -18,7 +18,7 @@ std::map<int, int> task(std::multimap<int, int> m) {
     std::map<int, int> r;
     for (auto it2 = m.begin(); it2 != m.end(); it2++) {
         r[it2->first] = it2->second;
-        for (auto it = std::next(it2, 1); it != m.end(); it++)
+        for (auto it = std::next(it2); it != m.end(); it++)
             if (r.rbegin()->second >= it->first) {
                 if (r.rbegin()->second < it->second)
                     r.rbegin()->second = it->second;
