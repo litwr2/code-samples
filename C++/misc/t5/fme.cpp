@@ -62,41 +62,20 @@ Additional Implementation Notes
 #include <functional>
 #include <exception>
 #include <utility>
+#include "fme.h"
+#include "parse.h"
 
-struct DirTreeNode {
-    std::map<std::string, DirTreeNode*> descendants;
-};
+const std::pair<DirTree::DirTreeNode*, DirTree::DirTreeNode*> DirTree::nullpair{nullptr, nullptr};
 
-struct DirTree {
-    DirTreeNode *root = new DirTreeNode;
-};
-
-std::vector<std::string> split(std::string input, const std::string &delimiters) {
-    std::vector<std::string> v;
-    for (;;) {
-        while (delimiters.find(input[0]) != std::string::npos)
-            input = input.substr(1);
-        if (input == "") return v;
-        auto pos = input.find_first_of(delimiters);
-        if (pos == std::string::npos) {
-            v.push_back(input);
-            return v;
-        }
-        v.push_back(input.substr(0, pos));
-        input = input.substr(pos);
-    }
-}
-
-const std::pair<DirTreeNode*, DirTreeNode*> nullpair{nullptr, nullptr};
-
-std::pair<DirTreeNode*, DirTreeNode*> checkPath(const std::vector<std::string> &path, const DirTree& dirTree, int skips = 1) {
-    DirTreeNode *p = dirTree.root, *pp = 0;
+std::pair<DirTree::DirTreeNode*, DirTree::DirTreeNode*> DirTree::checkPath(const std::vector<std::string> &path, int skips) const {
+//returns pointers to the final element found and its predecessor
+    DirTree::DirTreeNode *p = root, *pp = 0;
     for (int i = 0; i < path.size() - skips; ++i) {
         if (p == nullptr)
-            return std::make_pair(nullptr, nullptr);
+            return DirTree::nullpair;
         auto it = p->descendants.find(path[i]);
         if (it == p->descendants.end())
-            return std::make_pair(nullptr, nullptr);
+            return DirTree::nullpair;
         pp = p;
         p = it->second;
     }
@@ -104,167 +83,31 @@ std::pair<DirTreeNode*, DirTreeNode*> checkPath(const std::vector<std::string> &
 }
 
 bool checkFile(const std::vector<std::string> &path, const DirTree& dirTree) {
-    auto p = checkPath(path, dirTree, 0);
+    auto p = dirTree.checkPath(path, 0);
     if (p.first == nullptr)
         return true;
     else
         return false;
 }
 
-void deleteDir(DirTreeNode* p) {
+void deleteDir(DirTree::DirTreeNode* p) {
    if (p == nullptr) return;
    for (auto it = p->descendants.begin(); it != p->descendants.end(); ++it)
        deleteDir(it->second);
    delete p;
 }
 
-void copyDir(DirTreeNode* p1, DirTreeNode* p2) {
+void copyDir(DirTree::DirTreeNode* p1, DirTree::DirTreeNode* p2) {
     for (auto it = p1->descendants.begin(); it != p1->descendants.end(); ++it)
        if (it->second == nullptr)
            p2->descendants[it->first] = nullptr;  //copying a file
        else {
-           p2->descendants[it->first] = new DirTreeNode;
+           p2->descendants[it->first] = new DirTree::DirTreeNode;
            copyDir(it->second, p2->descendants[it->first]);
        }
 }
 
-bool md(const std::vector<std::string> &cmd, DirTree& dirTree) {
-    if (cmd.size() < 2)
-        throw std::runtime_error("command has no argument");
-    if (cmd.size() > 2)
-        throw std::runtime_error("extra argument(s)");
-    auto path = split(cmd[1], "/");
-    auto p = checkPath(path, dirTree);
-    if (p == nullpair)
-        throw std::runtime_error("can't create a directory, wrong path");
-    if (p.first->descendants.find(path.back()) != p.first->descendants.end())
-        throw std::runtime_error("attempt to overwrite an existing file or directory");
-    p.first->descendants[path.back()] = new DirTreeNode;
-    return true;
-}
-
-bool mf(const std::vector<std::string> &cmd, DirTree& dirTree) {
-    if (cmd.size() < 2)
-        throw std::runtime_error("command has no argument");
-    if (cmd.size() > 2)
-        throw std::runtime_error("extra argument(s)");
-    auto path = split(cmd[1], "/");
-    auto p = checkPath(path, dirTree);
-    if (p == nullpair)
-        throw std::runtime_error("can't create a file, wrong path");
-    if (p.first->descendants.find(path.back()) != p.first->descendants.end())
-        if (p.first->descendants[path.back()] != nullptr)
-            throw std::runtime_error("attempt to overwrite an existing directory");
-        else
-            return false;
-    p.first->descendants[path.back()] = nullptr;
-    return true;
-}
-
-bool rm(const std::vector<std::string> &cmd, DirTree& dirTree) {
-    if (cmd.size() < 2)
-        throw std::runtime_error("command has no argument");
-    if (cmd.size() > 2)
-        throw std::runtime_error("extra argument(s)");
-    auto path = split(cmd[1], "/");
-    auto p = checkPath(path, dirTree, 0);
-    if (p == nullpair)
-        throw std::runtime_error("no such file or directory");
-    deleteDir(p.first);
-    p.second->descendants.erase(path.back());
-    return true;
-}
-
-bool cp(const std::vector<std::string> &cmd, DirTree& dirTree) {
-    if (cmd.size() < 3)
-        throw std::runtime_error("command has no enough arguments");
-    if (cmd.size() > 3)
-        throw std::runtime_error("extra argument(s)");
-    auto path1 = split(cmd[1], "/");
-    auto path2 = split(cmd[2], "/");
-    if (path1 == path2) return true; //error?
-    auto p1 = checkPath(path1, dirTree, 0);
-    if (p1 == nullpair)
-        throw std::runtime_error("1st arg - no such file or directory");
-    auto p2 = checkPath(path2, dirTree);
-    if (p2 == nullpair)
-        throw std::runtime_error("2nd arg - no such directory");
-    if (checkFile(path2, dirTree) && checkFile(path1, dirTree)) {
-        mf({"mf", cmd[2]}, dirTree);
-        return true;
-    }
-    if (!checkFile(path2, dirTree) && checkFile(path1, dirTree)) {
-        mf({"mf", cmd[2] + "/" + path1.back()}, dirTree);
-        return true;
-    }
-    if (checkFile(path2, dirTree) && !checkFile(path1, dirTree))
-        throw std::runtime_error("can't copy a directory to a file");
-    p2 = checkPath(path2, dirTree, 0);
-    auto it = p2.first->descendants.find(path1.back());
-    if (it != p2.first->descendants.end() && it->second == nullptr)
-        throw std::runtime_error("can't copy a directory to a file");
-    auto pn = new DirTreeNode;
-    copyDir(p1.first, pn);
-    p2.first->descendants[path1.back()] = pn;
-    return true;
-}
-
-bool mv(const std::vector<std::string> &cmd, DirTree& dirTree) {
-if (cmd.size() < 3)
-        throw std::runtime_error("command has no enough arguments");
-    if (cmd.size() > 3)
-        throw std::runtime_error("extra argument(s)");
-    auto path1 = split(cmd[1], "/");
-    auto path2 = split(cmd[2], "/");
-    if (path1 == path2) return true; //error?
-    auto p1 = checkPath(path1, dirTree, 0);
-    if (p1 == nullpair)
-        throw std::runtime_error("1st arg - no such file or directory");
-    auto p2 = checkPath(path2, dirTree);
-    if (p2 == nullpair)
-        throw std::runtime_error("2nd arg - no such directory");
-    if (checkFile(path2, dirTree) && checkFile(path1, dirTree)) {
-        mf({"mf", cmd[2]}, dirTree);
-        rm({"rm", cmd[1]}, dirTree);
-        return true;
-    }
-    if (!checkFile(path2, dirTree) && checkFile(path1, dirTree)) {
-        mf({"mf", cmd[2] + "/" + path1.back()}, dirTree);
-        rm({"rm", cmd[1]}, dirTree);
-        return true;
-    }
-    if (checkFile(path2, dirTree) && !checkFile(path1, dirTree))
-        throw std::runtime_error("can't move a directory to a file");
-    p2 = checkPath(path2, dirTree, 0);
-    auto it = p2.first->descendants.find(path1.back());
-    if (it != p2.first->descendants.end() && it->second == nullptr)
-        throw std::runtime_error("can't move a directory to a file");
-    auto pn = new DirTreeNode;
-    copyDir(p1.first, pn);
-    p2.first->descendants[path1.back()] = pn;
-    rm({"rm", cmd[1]}, dirTree);
-    return true;
-}
-
-std::map<std::string, std::function<bool(const std::vector<std::string> &cmd, DirTree&)>> lex{{"md", md}, {"mf", mf}, {"rm", rm}, {"cp", cp}, {"mv", mv}};
-
-int parse(DirTree &dirTree) {
-    std::string input;
-    do {
-        std::getline(std::cin, input);
-        auto cmd = split(input, " \t");
-        if (cmd.size() == 0) return 1;
-        if (lex.find(cmd[0]) == lex.end())
-            throw std::runtime_error("wrong command");
-        if (lex[cmd[0]](cmd, dirTree) == false) {
-            //throw std::runtime_error("command failed");
-        }
-    }
-    while (std::cin);
-    return 1;
-}
-
-void cleanDir(const DirTreeNode *root) {
+void cleanDir(const DirTree::DirTreeNode *root) {
     if (root == nullptr) return;
     for (auto it = root->descendants.begin(); it != root->descendants.end(); ++it)
         if (it->second != nullptr) {
@@ -273,14 +116,14 @@ void cleanDir(const DirTreeNode *root) {
         }
 }
 
-int cleanDir(DirTree &dirTree) {
+void cleanDir(DirTree &dirTree) {
     cleanDir(dirTree.root);
     delete dirTree.root;
 }
 
-void printDirTree(std::ostream& out, const DirTreeNode *root, unsigned level1) {
+void printDirTree(std::ostream& out, const DirTree::DirTreeNode *root, unsigned level1) {
     for (auto it = root->descendants.begin(); it != root->descendants.end(); ++it) {
-        out << "|";
+        out << " |";
         for (int i = 0; i < level1; ++i) out << "    |";
         out << "_" << it->first << "\n";
         if (it->second != nullptr)
