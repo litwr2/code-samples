@@ -1,4 +1,4 @@
-TESTFILE=test-fme.cmd
+TESTFILE=test.fme
 rm -rf results-fme results-linux test-fme.linux test-fme-dir
 mkdir test-fme-dir
 cd test-fme-dir
