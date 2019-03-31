@@ -16,12 +16,12 @@ const std::pair<DirTreeNode*, DirTreeNode*> DirTree::nullpair{nullptr, nullptr};
 std::pair<DirTreeNode*, DirTreeNode*> DirTree::checkPath(const std::vector<std::string> &path, int skips) const {
 //returns pointers to the final element found and its predecessor
     DirTreeNode *p = root, *pp = 0;
-    for (int i = 0; i < path.size() - skips; ++i) {
+    for (int i = 0; i + skips < path.size(); ++i) {
         if (p == nullptr)
-            return DirTree::nullpair;
+            return nullpair;
         auto it = p->descendants.find(path[i]);
         if (it == p->descendants.end())
-            return DirTree::nullpair;
+            return nullpair;
         pp = p;
         p = it->second;
     }
@@ -33,8 +33,7 @@ bool DirTree::checkFile(const std::vector<std::string> &path) {
     auto p = checkPath(path, 0);
     if (p.first == nullptr)
         return true;
-    else
-        return false;
+    return false;
 }
 
 void DirTree::deleteDir(DirTreeNode* p) {
@@ -71,7 +70,7 @@ DirTree::~DirTree() {
 void DirTree::printDirTree(std::ostream& out, const DirTreeNode *root, unsigned level, std::vector<bool> lastFlag) {
     for (auto it = root->descendants.begin(); it != root->descendants.end(); ++it) {
         if (lastFlag[0]) out << "  "; else out << " |";
-        for (int i = 1; i <= level; ++i) out << (lastFlag[i] ? "     " : "     |");
+        for (int i = 1; i <= level; ++i) out << (lastFlag[i] ? "   " : "   |");
         out << "_ " << it->first
 #if PRINT_DIR_SLASH
             << (it->second != nullptr ? "/" : "")

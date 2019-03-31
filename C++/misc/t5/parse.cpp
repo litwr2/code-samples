@@ -102,12 +102,19 @@ bool cp(const std::vector<std::string> &cmd, DirTree& dirTree) {
     if (dirTree.checkFile(path2) && !dirTree.checkFile(path1))
         throw std::runtime_error("can't copy a directory to a file");
     p2 = dirTree.checkPath(path2, 0);
-    auto it = p2.first->descendants.find(path1.back());
-    if (it != p2.first->descendants.end() && it->second == nullptr)
-        throw std::runtime_error("can't copy a directory to a file");
+    if (!path1.empty()) {
+        auto it = p2.first->descendants.find(path1.back());
+        if (it != p2.first->descendants.end() && it->second == nullptr)
+            throw std::runtime_error("can't copy a directory to a file");
+    }
     auto pn = new DirTreeNode;
     DirTree::copyDir(p1.first, pn);
-    p2.first->descendants[path1.back()] = pn;
+    if (path1.empty()) {
+        p2.first->descendants.insert(pn->descendants.begin(), pn->descendants.end());
+        delete pn;  //handles the root directory
+    }
+    else
+        p2.first->descendants[path1.back()] = pn;
     return true;
 }
 
@@ -138,12 +145,17 @@ if (cmd.size() < 3)
     if (dirTree.checkFile(path2) && !dirTree.checkFile(path1))
         throw std::runtime_error("can't move a directory to a file");
     p2 = dirTree.checkPath(path2, 0);
-    auto it = p2.first->descendants.find(path1.back());
-    if (it != p2.first->descendants.end() && it->second == nullptr)
-        throw std::runtime_error("can't move a directory to a file");
+    if (!path1.empty()) {
+        auto it = p2.first->descendants.find(path1.back());
+        if (it != p2.first->descendants.end() && it->second == nullptr)
+            throw std::runtime_error("can't move a directory to a file");
+    }
     auto pn = new DirTreeNode;
     DirTree::copyDir(p1.first, pn);
-    p2.first->descendants[path1.back()] = pn;
+    if (path1.empty())
+        throw std::runtime_error("can't move an upper directory to a lower level");
+    else
+        p2.first->descendants[path1.back()] = pn;
     rm({"rm", cmd[1]}, dirTree);
     return true;
 }
