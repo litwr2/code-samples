@@ -8,7 +8,10 @@
 #include "fme.h"
 #include "parse.h"
 
+namespace parser {
+
 std::vector<std::string> split(std::string input, const std::string &delimiters) { //can be taken from boost
+//for general path format it has to be specialized to work with leading (root) slashes
     std::vector<std::string> v;
     for (;;) {
         while (delimiters.find(input[0]) != std::string::npos)
@@ -38,7 +41,7 @@ bool md(const std::vector<std::string> &cmd, DirTree& dirTree) {
         throw std::runtime_error("can't create a directory, wrong path");
     if (p.first->descendants.find(path.back()) != p.first->descendants.end())
         throw std::runtime_error("attempt to overwrite an existing file or directory");
-    p.first->descendants[path.back()] = new DirTree::DirTreeNode;
+    p.first->descendants[path.back()] = new DirTreeNode;
     return true;
 }
 
@@ -69,7 +72,7 @@ bool rm(const std::vector<std::string> &cmd, DirTree& dirTree) {
     auto p = dirTree.checkPath(path, 0);
     if (p == DirTree::nullpair)
         throw std::runtime_error("no such file or directory");
-    deleteDir(p.first);
+    DirTree::deleteDir(p.first);
     p.second->descendants.erase(path.back());
     return true;
 }
@@ -88,22 +91,22 @@ bool cp(const std::vector<std::string> &cmd, DirTree& dirTree) {
     auto p2 = dirTree.checkPath(path2);
     if (p2 == DirTree::nullpair)
         throw std::runtime_error("2nd arg - no such directory");
-    if (checkFile(path2, dirTree) && checkFile(path1, dirTree)) {
+    if (dirTree.checkFile(path2) && dirTree.checkFile(path1)) {
         mf({"mf", cmd[2]}, dirTree);
         return true;
     }
-    if (!checkFile(path2, dirTree) && checkFile(path1, dirTree)) {
+    if (!dirTree.checkFile(path2) && dirTree.checkFile(path1)) {
         mf({"mf", cmd[2] + "/" + path1.back()}, dirTree);
         return true;
     }
-    if (checkFile(path2, dirTree) && !checkFile(path1, dirTree))
+    if (dirTree.checkFile(path2) && !dirTree.checkFile(path1))
         throw std::runtime_error("can't copy a directory to a file");
     p2 = dirTree.checkPath(path2, 0);
     auto it = p2.first->descendants.find(path1.back());
     if (it != p2.first->descendants.end() && it->second == nullptr)
         throw std::runtime_error("can't copy a directory to a file");
-    auto pn = new DirTree::DirTreeNode;
-    copyDir(p1.first, pn);
+    auto pn = new DirTreeNode;
+    DirTree::copyDir(p1.first, pn);
     p2.first->descendants[path1.back()] = pn;
     return true;
 }
@@ -122,24 +125,24 @@ if (cmd.size() < 3)
     auto p2 = dirTree.checkPath(path2);
     if (p2 == DirTree::nullpair)
         throw std::runtime_error("2nd arg - no such directory");
-    if (checkFile(path2, dirTree) && checkFile(path1, dirTree)) {
+    if (dirTree.checkFile(path2) && dirTree.checkFile(path1)) {
         mf({"mf", cmd[2]}, dirTree);
         rm({"rm", cmd[1]}, dirTree);
         return true;
     }
-    if (!checkFile(path2, dirTree) && checkFile(path1, dirTree)) {
+    if (!dirTree.checkFile(path2) && dirTree.checkFile(path1)) {
         mf({"mf", cmd[2] + "/" + path1.back()}, dirTree);
         rm({"rm", cmd[1]}, dirTree);
         return true;
     }
-    if (checkFile(path2, dirTree) && !checkFile(path1, dirTree))
+    if (dirTree.checkFile(path2) && !dirTree.checkFile(path1))
         throw std::runtime_error("can't move a directory to a file");
     p2 = dirTree.checkPath(path2, 0);
     auto it = p2.first->descendants.find(path1.back());
     if (it != p2.first->descendants.end() && it->second == nullptr)
         throw std::runtime_error("can't move a directory to a file");
-    auto pn = new DirTree::DirTreeNode;
-    copyDir(p1.first, pn);
+    auto pn = new DirTreeNode;
+    DirTree::copyDir(p1.first, pn);
     p2.first->descendants[path1.back()] = pn;
     rm({"rm", cmd[1]}, dirTree);
     return true;
@@ -159,5 +162,7 @@ int parse(DirTree &dirTree) {
     }
     while (std::cin);
     return 1;
+}
+
 }
 

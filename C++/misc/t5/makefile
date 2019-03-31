@@ -1,7 +1,7 @@
 CXXFLAGS = -g
 LDFLAGS = -lstdc++
 
-fme: parse.o fme.o
+test-fme: test-fme.o parse.o fme.o
 
 clean:
-	rm *.o fme
+	rm -f *.o test-fme
