@@ -1,4 +1,4 @@
-To build and run this program and a supplied test you need the following programs (they are part of almost any Linux distribution): g++, make, bash, tree.  Program `tree' required for the test only.  It is possible to use almost any Unix shell instead of bash.  The C++ compiler requires support for the standard of 2011.
+To build and run this program and a supplied test you need the following programs (they are part of almost any Linux distribution): g++, make, bash, tree, sed, diff.  Programs `tree', `sed' and `diff' required for the test only.  It is possible to use almost any Unix shell instead of bash.  The C++ compiler requires support of the standard of 2011.
 
 To build the program, run
     make
