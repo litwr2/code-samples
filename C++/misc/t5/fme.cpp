@@ -70,7 +70,7 @@ DirTree::~DirTree() {
 void DirTree::printDirTree(std::ostream& out, const DirTreeNode *root, unsigned level, std::vector<bool> lastFlag) {
     for (auto it = root->descendants.begin(); it != root->descendants.end(); ++it) {
         if (lastFlag[0]) out << "  "; else out << " |";
-        for (int i = 1; i <= level; ++i) out << (lastFlag[i] ? "   " : "   |");
+        for (int i = 1; i <= level; ++i) out << (lastFlag[i] ? "    " : "   |");
         out << "_ " << it->first
 #if PRINT_DIR_SLASH
             << (it->second != nullptr ? "/" : "")
