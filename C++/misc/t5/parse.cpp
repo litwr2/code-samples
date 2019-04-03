@@ -152,12 +152,11 @@ if (cmd.size() < 3)
         if (it != p2.first->descendants.end() && it->second == nullptr)
             throw std::runtime_error("can't move a directory to a file - " + cmd[1]);
     }
+    if (cmd[2].find(cmd[1]) == 0)
+        throw std::runtime_error("can't move an upper directory to a lower level (" + cmd[1] + " to " + cmd[2] + ")");
     auto pn = new DirTreeNode;
     DirTree::copyDir(p1.first, pn);
-    if (path1.empty())
-        throw std::runtime_error("can't move an upper directory to a lower level (" + cmd[1] + " to " + cmd[2] + ")");
-    else
-        p2.first->descendants[path1.back()] = pn;
+    p2.first->descendants[path1.back()] = pn;
     rm({"rm", cmd[1]}, dirTree);
     return true;
 }

@@ -16,6 +16,7 @@ public:
     std::pair<DirTreeNode*, DirTreeNode*> checkPath(const std::vector<std::string> &path, int skips = 1) const;
     bool checkFile(const std::vector<std::string> &path);
     ~DirTree();
+    friend std::ostream& operator<<(std::ostream& out, const DirTree &dirTree);
 };
 
 std::ostream& operator<<(std::ostream& out, const DirTree &dirTree);
