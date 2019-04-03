@@ -26,4 +26,6 @@ cp /dir3/dir1/dir4/f2 /
 cp /dir3/dir9 /dir3/dir9/dir0
 rm /dir2
 rm /dir3/f0
-
+mf /dir3/newfile
+md /dir2
+md /dir2/newdir
