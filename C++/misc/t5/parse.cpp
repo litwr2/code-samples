@@ -4,6 +4,7 @@
 #include <string>
 #include <functional>
 #include <exception>
+#include <memory>
 #include <utility>
 #include "fme.h"
 #include "parse.h"
@@ -32,31 +33,31 @@ std::map<std::string, std::function<bool(const std::vector<std::string> &cmd, Di
 
 bool md(const std::vector<std::string> &cmd, DirTree& dirTree) {
     if (cmd.size() < 2)
-        throw std::runtime_error("command has no argument");
+        throw std::runtime_error("md command has no argument");
     if (cmd.size() > 2)
-        throw std::runtime_error("extra argument(s)");
+        throw std::runtime_error("md - extra argument(s)");
     auto path = split(cmd[1], "/");
     auto p = dirTree.checkPath(path);
     if (p == DirTree::nullpair)
-        throw std::runtime_error("can't create a directory, wrong path");
+        throw std::runtime_error("can't create a directory, wrong path - " + cmd[1]);
     if (p.first->descendants.find(path.back()) != p.first->descendants.end())
-        throw std::runtime_error("attempt to overwrite an existing file or directory");
+        throw std::runtime_error("attempt to overwrite an existing file or directory - " + cmd[1]);
     p.first->descendants[path.back()] = new DirTreeNode;
     return true;
 }
 
 bool mf(const std::vector<std::string> &cmd, DirTree& dirTree) {
     if (cmd.size() < 2)
-        throw std::runtime_error("command has no argument");
+        throw std::runtime_error("mf command has no argument");
     if (cmd.size() > 2)
-        throw std::runtime_error("extra argument(s)");
+        throw std::runtime_error("mf - extra argument(s)");
     auto path = split(cmd[1], "/");
     auto p = dirTree.checkPath(path);
     if (p == DirTree::nullpair)
-        throw std::runtime_error("can't create a file, wrong path");
+        throw std::runtime_error("can't create a file, wrong path - " + cmd[1]);
     if (p.first->descendants.find(path.back()) != p.first->descendants.end())
         if (p.first->descendants[path.back()] != nullptr)
-            throw std::runtime_error("attempt to overwrite an existing directory");
+            throw std::runtime_error("attempt to overwrite an existing directory -" + cmd[1]);
         else
             return false;
     p.first->descendants[path.back()] = nullptr;
@@ -65,13 +66,15 @@ bool mf(const std::vector<std::string> &cmd, DirTree& dirTree) {
 
 bool rm(const std::vector<std::string> &cmd, DirTree& dirTree) {
     if (cmd.size() < 2)
-        throw std::runtime_error("command has no argument");
+        throw std::runtime_error("rm command has no argument");
     if (cmd.size() > 2)
-        throw std::runtime_error("extra argument(s)");
+        throw std::runtime_error("rm - extra argument(s)");
     auto path = split(cmd[1], "/");
+    if (path.empty())
+        throw std::runtime_error("can't remove the root directorty");
     auto p = dirTree.checkPath(path, 0);
     if (p == DirTree::nullpair)
-        throw std::runtime_error("no such file or directory");
+        throw std::runtime_error("no such file or directory - " + cmd[1]);
     DirTree::deleteDir(p.first);
     p.second->descendants.erase(path.back());
     return true;
@@ -87,10 +90,10 @@ bool cp(const std::vector<std::string> &cmd, DirTree& dirTree) {
     if (path1 == path2) return true; //error?
     auto p1 = dirTree.checkPath(path1, 0);
     if (p1 == DirTree::nullpair)
-        throw std::runtime_error("1st arg - no such file or directory");
+        throw std::runtime_error("1st arg - no such file or directory - " + cmd[1]);
     auto p2 = dirTree.checkPath(path2);
     if (p2 == DirTree::nullpair)
-        throw std::runtime_error("2nd arg - no such directory");
+        throw std::runtime_error("2nd arg - no such directory - " + cmd[2]);
     if (dirTree.checkFile(path2) && dirTree.checkFile(path1)) {
         mf({"mf", cmd[2]}, dirTree);
         return true;
@@ -100,12 +103,12 @@ bool cp(const std::vector<std::string> &cmd, DirTree& dirTree) {
         return true;
     }
     if (dirTree.checkFile(path2) && !dirTree.checkFile(path1))
-        throw std::runtime_error("can't copy a directory to a file");
+        throw std::runtime_error("can't copy a directory to a file - " + cmd[2]);
     p2 = dirTree.checkPath(path2, 0);
     if (!path1.empty()) {
         auto it = p2.first->descendants.find(path1.back());
         if (it != p2.first->descendants.end() && it->second == nullptr)
-            throw std::runtime_error("can't copy a directory to a file");
+            throw std::runtime_error("can't copy a directory to a file - " + cmd[2]);
     }
     auto pn = new DirTreeNode;
     DirTree::copyDir(p1.first, pn);
@@ -120,18 +123,18 @@ bool cp(const std::vector<std::string> &cmd, DirTree& dirTree) {
 
 bool mv(const std::vector<std::string> &cmd, DirTree& dirTree) {
 if (cmd.size() < 3)
-        throw std::runtime_error("command has no enough arguments");
+        throw std::runtime_error("mv command has no enough arguments");
     if (cmd.size() > 3)
-        throw std::runtime_error("extra argument(s)");
+        throw std::runtime_error("mv - extra argument(s)");
     auto path1 = split(cmd[1], "/");
     auto path2 = split(cmd[2], "/");
     if (path1 == path2) return true; //error?
     auto p1 = dirTree.checkPath(path1, 0);
     if (p1 == DirTree::nullpair)
-        throw std::runtime_error("1st arg - no such file or directory");
+        throw std::runtime_error("1st arg - no such file or directory - " + cmd[1]);
     auto p2 = dirTree.checkPath(path2);
     if (p2 == DirTree::nullpair)
-        throw std::runtime_error("2nd arg - no such directory");
+        throw std::runtime_error("2nd arg - no such directory - " + cmd[1]);
     if (dirTree.checkFile(path2) && dirTree.checkFile(path1)) {
         mf({"mf", cmd[2]}, dirTree);
         rm({"rm", cmd[1]}, dirTree);
@@ -143,17 +146,17 @@ if (cmd.size() < 3)
         return true;
     }
     if (dirTree.checkFile(path2) && !dirTree.checkFile(path1))
-        throw std::runtime_error("can't move a directory to a file");
+        throw std::runtime_error("can't move a directory to a file - " + cmd[1]);
     p2 = dirTree.checkPath(path2, 0);
     if (!path1.empty()) {
         auto it = p2.first->descendants.find(path1.back());
         if (it != p2.first->descendants.end() && it->second == nullptr)
-            throw std::runtime_error("can't move a directory to a file");
+            throw std::runtime_error("can't move a directory to a file - " + cmd[1]);
     }
     auto pn = new DirTreeNode;
     DirTree::copyDir(p1.first, pn);
     if (path1.empty())
-        throw std::runtime_error("can't move an upper directory to a lower level");
+        throw std::runtime_error("can't move an upper directory to a lower level (" + cmd[1] + " to " + cmd[2] + ")");
     else
         p2.first->descendants[path1.back()] = pn;
     rm({"rm", cmd[1]}, dirTree);

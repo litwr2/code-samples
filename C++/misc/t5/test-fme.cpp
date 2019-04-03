@@ -61,6 +61,7 @@ Additional Implementation Notes
 #include <string>
 #include <functional>
 #include <exception>
+#include <memory>
 #include <utility>
 #include "fme.h"
 #include "parse.h"
