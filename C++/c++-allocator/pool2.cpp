@@ -146,10 +146,10 @@ template<class T> struct Pool_alloc : allocator<T> {
       pools.erase(sz);
       map_of_allocators.erase(this);
    }
-   T* allocate(size_t, void*);
+   T* allocate(size_t, void* = 0);
    void deallocate(T*, size_t);
 };
-template<class T> T* Pool_alloc<T>::allocate(size_t n, void* = 0) {
+template<class T> T* Pool_alloc<T>::allocate(size_t n, void*) {
    T* p;
    if (n == 1)
       p = static_cast<T*>(pools[minLinkSize(sizeof(T))]->alloc());
