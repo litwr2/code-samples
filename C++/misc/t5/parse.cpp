@@ -69,13 +69,12 @@ bool rm(const std::vector<std::string> &cmd, DirTree& dirTree) {
     if (cmd.size() > 2)
         throw std::runtime_error("rm - extra argument(s)");
     auto path = split(cmd[1], "/");
-    if (path.empty())
-        throw std::runtime_error("can't remove the root directorty");
     auto p = dirTree.checkPath(path, 0);
     if (p == DirTree::nullpair)
         throw std::runtime_error("no such file or directory - " + cmd[1]);
-    DirTree::deleteDir(p.first);
-    p.second->descendants.erase(path.back());
+    DirTree::clearDir(p.first);
+    if (!path.empty())
+        p.second->descendants.erase(path.back());
     return true;
 }
 

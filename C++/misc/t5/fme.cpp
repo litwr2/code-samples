@@ -36,13 +36,6 @@ bool DirTree::checkFile(const std::vector<std::string> &path) {
     return false;
 }
 
-void DirTree::deleteDir(DirTreeNode* p) {
-   if (p == nullptr) return;
-   for (auto it = p->descendants.begin(); it != p->descendants.end(); ++it)
-       deleteDir(it->second);
-   delete p;
-}
-
 void DirTree::copyDir(DirTreeNode* p1, DirTreeNode* p2) {
     for (auto it = p1->descendants.begin(); it != p1->descendants.end(); ++it)
        if (it->second == nullptr)
@@ -53,13 +46,14 @@ void DirTree::copyDir(DirTreeNode* p1, DirTreeNode* p2) {
        }
 }
 
-void DirTree::clearDir(const DirTreeNode *root) {
-    if (root == nullptr) return;
-    for (auto it = root->descendants.begin(); it != root->descendants.end(); ++it)
-        if (it->second != nullptr) {
-            clearDir(it->second);
-            delete it->second;
-        }
+void DirTree::clearDir(DirTreeNode *p) {
+    if (p == nullptr) return;
+    for (auto it = p->descendants.begin(); it != p->descendants.end(); ++it) {
+        clearDir(it->second);
+        delete it->second;
+        it->second = nullptr;
+    }
+    p->descendants.clear();
 }
 
 DirTree::~DirTree() {
