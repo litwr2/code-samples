@@ -27,10 +27,9 @@ const std::string currentDateTime() {
     std::chrono::milliseconds ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch());
     time_t     now = ms.count()/1000;
     struct tm  tstruct = *localtime(&now);
-    char       buf[80], bufa[4];
+    char       buf[80];
     strftime(buf, sizeof(buf), "%d-%m-%Y %X.", &tstruct);
-    sprintf(bufa, "%03d", ms.count()%1000);
-    strcat(buf, bufa);
+    sprintf(buf + strlen(buf), "%03d", ms.count()%1000);
     return buf;
 }
 
