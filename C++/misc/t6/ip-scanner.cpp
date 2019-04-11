@@ -1,15 +1,17 @@
 /*
-Given 10,000 ip-addresses of servers. It is necessary to poll addresses on availability (up / down). As soon as the server has become unavailable, issue dd-MM-yyyy hh: mm: ss.fff, ip: port down to the console, if the server has risen to issue dd-MM-yyyy hh: mm: ss.fff, ip: port up. The list of servers is stored in a file in the form of ip: port. Output to console and file. To work with the network use only system calls.
+Given 10,000 ip-addresses of servers. It is necessary to poll addresses on availability (up/down). As soon as the server has become unavailable, issue dd-MM-yyyy hh: mm: ss.fff, ip: port down to the console, if the server has risen to issue dd-MM-yyyy hh: mm: ss.fff, ip: port up. The list of servers is stored in a file in the form of ip: port. Output to console and file. To work with the network use only system calls.
 */
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <netdb.h> 
+#include <netdb.h>
+#include <time.h>
+#include <errno.h>
 #include <string>
-#include <vector>
 #include <utility>
 #include <iostream>
 #include <fstream>
@@ -18,13 +20,13 @@ Given 10,000 ip-addresses of servers. It is necessary to poll addresses on avail
 #include <mutex>
 #include <chrono>
 #include <atomic>
-#include <time.h>
+#include <map>
+#include <set>
 
-#define NUMBER_OF_THREADS 255
+#define NUMBER_OF_THREADS 200
 
 // Get current date/time, format is dd-MM-yyyy hh:mm:ss.fff
-const std::string currentDateTime() {
-    std::chrono::milliseconds ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch());
+const std::string currentDateTime(const std::chrono::milliseconds& ms) {
     time_t     now = ms.count()/1000;
     struct tm  tstruct = *localtime(&now);
     char       buf[80];
@@ -39,7 +41,7 @@ int checkServer(const std::string &ip, int portno) {  //returns 0 if server is o
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
     if (sockfd < 0)
-        return -1; //ERROR opening socket;
+        return -3; //ERROR opening socket;
 
     struct hostent *server = gethostbyname(hostname);
 
@@ -53,6 +55,11 @@ int checkServer(const std::string &ip, int portno) {  //returns 0 if server is o
     int ior = connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
     close(sockfd);
     return ior;
+}
+
+void outputAll(std::ofstream &fo, const std::string& s) {
+    std::cout << s;
+    fo << s << std::flush;
 }
 
 int main(int argc, char *argv[]) {
@@ -71,7 +78,7 @@ int main(int argc, char *argv[]) {
         exit(3);
     }
     int lineno = 0;
-    std::vector<std::pair<std::string, int>> servers;
+    std::set<std::pair<std::string, int>> servers;
     while (!serverList.eof()) {
         std::string s;
         getline(serverList, s);
@@ -79,32 +86,71 @@ int main(int argc, char *argv[]) {
         if (s.empty()) continue;  //skips empty lines
         auto pos = s.find(':');
         if (pos == std::string::npos) {
-             std::cerr << "error in line #" << lineno << " of " << argv[1] << "\n";
-             continue; //exit(3);
+            std::cerr << "error in line #" << lineno << " of " << argv[1] << "\n";
+            continue; //exit(3);
         }
-        servers.push_back({s.substr(0, pos), std::stoi(s.substr(pos + 1))});
+        servers.insert({s.substr(0, pos), std::stoi(s.substr(pos + 1))});
     }
 
     std::atomic<int> qt(0);
-    std::mutex mx;
-//ETERNAL_LOOP:
+    std::mutex mx, mxw;
+    std::map<std::pair<std::string, int>, std::chrono::milliseconds> serverSet, serverSetUpdate;
+    std::set<std::pair<std::string, int>> waiting;
     for (auto v: servers) {
         ++qt;
-        std::thread([v, &qt, &mx, &output]{
-            std::string s = currentDateTime() + ", " + v.first + ":" + std::to_string(v.second);
-            if (checkServer(v.first,  v.second) == 0)
-                s += " up\n";
-            else
-                s += " down\n";
-            mx.lock();
-            std::cout << s;
-            output << s; 
-            mx.unlock();
+        std::thread([&, v]{
+            mxw.lock();
+            waiting.insert(v);
+            mxw.unlock();
+            if (checkServer(v.first,  v.second) == 0) {
+                std::lock_guard<std::mutex> lk(mx);
+                serverSet.insert({v, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())});
+            }
+            mxw.lock();
+            waiting.erase(v);
+            mxw.unlock();
             --qt;}).detach();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
         while (qt >= NUMBER_OF_THREADS);
     }
-    while (qt);
-//    goto ETERNAL_LOOP;
+    std::multimap<std::chrono::milliseconds, std::string> sortedOutput;
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+ETERNAL_LOOP:
+    sortedOutput.clear();
+    for (auto v: servers) {
+        {
+        std::lock_guard<std::mutex> lk(mxw);
+        if (waiting.find(v) != waiting.end()) continue;
+        }
+        ++qt;
+        std::thread([&, v]{
+            std::unique_lock<std::mutex> lk(mxw);
+            waiting.insert(v);
+            lk.unlock();
+            if (checkServer(v.first,  v.second) == 0) {
+                std::lock_guard<std::mutex> lk(mx);
+                serverSetUpdate.insert({v, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())});
+            }
+            lk.lock();
+            waiting.erase(v);
+            --qt;}).detach();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        while (qt >= NUMBER_OF_THREADS);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    mx.lock();
+    for (auto el: serverSet)
+        if (serverSetUpdate.find(el.first) == serverSetUpdate.end())
+            sortedOutput.insert({el.second, currentDateTime(el.second) + ", " + el.first.first + ":" + std::to_string(el.first.second) + " down\n"});
+    for (auto el: serverSetUpdate)
+        if (serverSet.find(el.first) == serverSet.end())
+            sortedOutput.insert({el.second, currentDateTime(el.second) + ", " + el.first.first + ":" + std::to_string(el.first.second) + " up\n"});
+    serverSet = std::move(serverSetUpdate);
+    mx.unlock();
+    for (auto el: sortedOutput)
+        outputAll(output, el.second);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    goto ETERNAL_LOOP;
     output.close();
     return 0;
 }
