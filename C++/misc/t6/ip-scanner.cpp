@@ -139,7 +139,6 @@ ETERNAL_LOOP:
         std::this_thread::sleep_for(std::chrono::milliseconds(DELAY1_MS));
         while (qt >= NUMBER_OF_THREADS);
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY2_MS));
     mx.lock();
     for (auto el: serverSet)
         if (serverSetUpdate.find(el.first) == serverSetUpdate.end())
@@ -151,7 +150,7 @@ ETERNAL_LOOP:
     mx.unlock();
     for (auto el: sortedOutput)
         outputAll(output, el.second);
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY2_MS));
     goto ETERNAL_LOOP;
     output.close();
     return 0;
