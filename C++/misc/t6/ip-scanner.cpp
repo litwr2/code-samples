@@ -24,12 +24,14 @@ Given 10,000 ip-addresses of servers. It is necessary to poll addresses on avail
 #include <set>
 
 #define NUMBER_OF_THREADS 200
+#define DELAY1_MS 1
+#define DELAY2_MS 10
 
 // Get current date/time, format is dd-MM-yyyy hh:mm:ss.fff
 const std::string currentDateTime(const std::chrono::milliseconds& ms) {
-    time_t     now = ms.count()/1000;
-    struct tm  tstruct = *localtime(&now);
-    char       buf[80];
+    time_t now = ms.count()/1000;
+    tm tstruct = *localtime(&now);
+    char buf[80];
     strftime(buf, sizeof(buf), "%d-%m-%Y %X.", &tstruct);
     sprintf(buf + strlen(buf), "%03d", ms.count()%1000);
     return buf;
@@ -52,7 +54,7 @@ int checkServer(const std::string &ip, int portno) {  //returns 0 if server is o
     serv_addr.sin_family = AF_INET;
     memcpy((char*)&serv_addr.sin_addr.s_addr, (char*)server->h_addr, server->h_length);
     serv_addr.sin_port = htons(portno);
-    int ior = connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+    int ior = connect(sockfd, (sockaddr*)&serv_addr, sizeof(serv_addr));
     close(sockfd);
     return ior;
 }
@@ -110,11 +112,11 @@ int main(int argc, char *argv[]) {
             waiting.erase(v);
             mxw.unlock();
             --qt;}).detach();
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(DELAY1_MS));
         while (qt >= NUMBER_OF_THREADS);
     }
     std::multimap<std::chrono::milliseconds, std::string> sortedOutput;
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY2_MS));
 ETERNAL_LOOP:
     sortedOutput.clear();
     for (auto v: servers) {
@@ -134,10 +136,10 @@ ETERNAL_LOOP:
             lk.lock();
             waiting.erase(v);
             --qt;}).detach();
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(DELAY1_MS));
         while (qt >= NUMBER_OF_THREADS);
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY2_MS));
     mx.lock();
     for (auto el: serverSet)
         if (serverSetUpdate.find(el.first) == serverSetUpdate.end())
