@@ -1,5 +1,8 @@
 /*
-Given 10,000 ip-addresses of servers. It is necessary to poll addresses on availability (up/down). As soon as the server has become unavailable, issue dd-MM-yyyy hh: mm: ss.fff, ip: port down to the console, if the server has risen to issue dd-MM-yyyy hh: mm: ss.fff, ip: port up. The list of servers is stored in a file in the form of ip: port. Output to console and file. To work with the network use only system calls.
+Given 10,000 ip-addresses of servers. It is necessary to poll addresses on availability (up/down). As soon as the
+server has become unavailable, issue dd-MM-yyyy hh: mm: ss.fff, ip: port down to the console, if the server has
+risen to issue dd-MM-yyyy hh: mm: ss.fff, ip: port up. The list of servers is stored in a file in the form of
+ip: port. Output to console and file. To work with the network use only system calls.
 */
 
 #include <stdlib.h>
@@ -43,7 +46,7 @@ int checkServer(const std::string &ip, int portno) {  //returns 0 if server is o
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
     if (sockfd < 0)
-        return -3; //ERROR opening socket;
+        exit(3); //ERROR opening socket;
 
     hostent *server = gethostbyname(hostname);
 
