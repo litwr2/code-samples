@@ -25,7 +25,7 @@ Given 10,000 ip-addresses of servers. It is necessary to poll addresses on avail
 
 #define NUMBER_OF_THREADS 200
 #define DELAY1_MS 1
-#define DELAY2_MS 10
+#define DELAY2_MS 30
 
 // Get current date/time, format is dd-MM-yyyy hh:mm:ss.fff
 const std::string currentDateTime(const std::chrono::milliseconds& ms) {
@@ -45,11 +45,10 @@ int checkServer(const std::string &ip, int portno) {  //returns 0 if server is o
     if (sockfd < 0)
         return -3; //ERROR opening socket;
 
-    struct hostent *server = gethostbyname(hostname);
+    hostent *server = gethostbyname(hostname);
 
     if (server == NULL)
         return -2; //ERROR, no such host
-
     memset((char*)&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     memcpy((char*)&serv_addr.sin_addr.s_addr, (char*)server->h_addr, server->h_length);
@@ -139,6 +138,7 @@ ETERNAL_LOOP:
         std::this_thread::sleep_for(std::chrono::milliseconds(DELAY1_MS));
         while (qt >= NUMBER_OF_THREADS);
     }
+    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY2_MS));
     mx.lock();
     for (auto el: serverSet)
         if (serverSetUpdate.find(el.first) == serverSetUpdate.end())
@@ -150,7 +150,6 @@ ETERNAL_LOOP:
     mx.unlock();
     for (auto el: sortedOutput)
         outputAll(output, el.second);
-    std::this_thread::sleep_for(std::chrono::milliseconds(DELAY2_MS));
     goto ETERNAL_LOOP;
     output.close();
     return 0;
