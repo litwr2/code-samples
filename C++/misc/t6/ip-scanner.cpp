@@ -131,13 +131,13 @@ ETERNAL_LOOP:
             mx.lock();
             if (r == 0) {
                 if (serverSet.find(v) == serverSet.end()) {
-                     std::cout << t + " up\n";
+                     outputAll(output, t + " up\n");
                      serverSet.insert(v);
                 }
             }
             else {
                 if (serverSet.find(v) != serverSet.end()) {
-                     std::cout << t + " down\n";
+                     outputAll(output, t + " down\n");
                      serverSet.erase(v);
                 }
             }
