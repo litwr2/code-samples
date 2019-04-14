@@ -14,6 +14,7 @@ ip: port. Output to console and file. To work with the network use only system c
 #include <netdb.h>
 #include <time.h>
 #include <errno.h>
+#include <signal.h>
 #include <string>
 #include <utility>
 #include <iostream>
@@ -66,6 +67,12 @@ void outputAll(std::ofstream &fo, const std::string& s) {
     fo << s << std::flush;
 }
 
+int get_break;
+
+void signalHandler(int signal) {
+       get_break = 1;
+}
+
 int main(int argc, char *argv[]) {
     if (argc != 3) {
         std::cerr << "usage: " << argv[0] << " FILE-WITH-SERVER-LIST FILE-FOR-OUTPUT\n";
@@ -81,6 +88,9 @@ int main(int argc, char *argv[]) {
         std::cerr << argv[2] << " is not opened\n";
         exit(3);
     }
+
+    signal(SIGINT, signalHandler);
+
     int lineno = 0;
     std::set<std::pair<std::string, int>> servers;
     while (!serverList.eof()) {
@@ -130,8 +140,8 @@ ETERNAL_LOOP:
             waiting.insert(v);
             lkw.unlock();
             int r = checkServer(v.first,  v.second);
-            auto t = currentDateTime(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())) + ", " + v.first + ":" + std::to_string(v.second);
             mx.lock();
+            auto t = currentDateTime(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())) + ", " + v.first + ":" + std::to_string(v.second);
             if (r == 0) {
                 if (serverSet.find(v) == serverSet.end()) {
                      outputAll(output, t + " up\n");
@@ -152,7 +162,7 @@ ETERNAL_LOOP:
         while (qt >= NUMBER_OF_THREADS);
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(DELAY2_MS));
-    goto ETERNAL_LOOP;
+    if (get_break == 0) goto ETERNAL_LOOP;
     output.close();
     return 0;
 }
